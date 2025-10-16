@@ -1,0 +1,23 @@
+body {
+    background-color: bisque;
+}
+li {
+    color: blue;
+}
+img {
+    width: 22%;
+    
+}
+div li {
+    font-size: 150%;
+
+}
+table, th, td {
+    border: 1px solid black;
+    font-size: 120%;
+}
+button{
+    background-color: rgb(177, 111, 238);
+    border-radius: 0.5cm;
+    box-shadow: 15cm;
+}
