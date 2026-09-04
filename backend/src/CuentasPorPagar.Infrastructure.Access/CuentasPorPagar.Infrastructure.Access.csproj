@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\CuentasPorPagar.Domain\CuentasPorPagar.Domain.csproj" />
+    <ProjectReference Include="..\CuentasPorPagar.Application\CuentasPorPagar.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+    <PackageReference Include="System.Data.OleDb" Version="8.0.1" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- La restricción de la sección 4/61 (solo Windows, requiere Access Database
+         Engine Redistributable) se declara en AssemblyInfo.cs vía [assembly: SupportedOSPlatform].
+         Se mantiene el TFM net8.0 (no net8.0-windows) para que el resto del equipo
+         pueda seguir compilando/restaurando la solución en cualquier sistema operativo. -->
+  </PropertyGroup>
+
+</Project>

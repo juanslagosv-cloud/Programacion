@@ -1,0 +1,24 @@
+# .NET
+backend/**/bin/
+backend/**/obj/
+*.user
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Entorno local (nunca commitear secretos reales, ver .env.example)
+.env
+.env.local
+
+# Microsoft Access (el .accdb real de la empresa nunca debe versionarse)
+*.accdb
+*.laccdb
+*.mdb
+
+# Editores / SO
+.vs/
+.vscode/
+.idea/
+.DS_Store
