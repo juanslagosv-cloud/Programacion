@@ -1,0 +1,48 @@
+# Blueprint de despliegue en Render (render.com) para tener una URL pública real
+# sin instalar nada localmente — solo requiere iniciar sesión con GitHub en el
+# navegador. Despliega DOS servicios:
+#
+#   1. cxp-api      - backend ASP.NET Core (Dockerfile), DataProvider=Mock,
+#                      IntegrationMode=mock (sin Access ni Google reales).
+#   2. cxp-frontend - frontend Next.js.
+#
+# Cómo usarlo: en el dashboard de Render, "New" -> "Blueprint", conectar este
+# repositorio (rama claude/sistema-documental-cuentas-pagar-ew65ic) y Render lee
+# este archivo automáticamente. Después del primer despliegue quedan dos pasos
+# manuales (una sola vez, ambos desde el navegador de Render, sin instalar nada):
+#   a) copiar la URL de cxp-api y pegarla como NEXT_PUBLIC_API_URL en cxp-frontend
+#   b) copiar la URL de cxp-frontend y agregarla a CORS__ALLOWEDORIGINS__0 en cxp-api
+# y volver a desplegar cada servicio (botón "Manual Deploy").
+#
+# Esto reemplaza el archivo .accdb real por datos de demostración (sección 88):
+# no usar esta instancia con información real de la empresa.
+
+services:
+  - type: web
+    name: cxp-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: DataProvider
+        value: Mock
+      - key: IntegrationMode
+        value: mock
+      - key: Jwt__SigningKey
+        generateValue: true
+      - key: Cors__AllowedOrigins__0
+        value: http://localhost:3000 # actualizar manualmente con la URL real de cxp-frontend
+
+  - type: web
+    name: cxp-frontend
+    runtime: node
+    rootDir: frontend
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: http://localhost:5238 # actualizar manualmente con la URL real de cxp-api
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        value: ""
