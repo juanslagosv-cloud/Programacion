@@ -4,8 +4,10 @@ import Link from "next/link";
 import { menuParaRol, type Rol } from "@/lib/roles";
 
 // Menú lateral (sección 78): "los módulos deben aparecer únicamente según
-// permisos". Aquí se filtra por rol de demostración; en la Fase 3 la fuente de
-// verdad es la lista de permisos que devuelve el backend, no este arreglo local.
+// permisos". El rol viene de la sesión real emitida por el backend tras el
+// login (Fase 3); este archivo solo mapea nombre de rol -> secciones a
+// mostrar. La autorización real de cada acción se vuelve a validar en el
+// backend (PermisoRequeridoAttribute) sin importar lo que muestre este menú.
 export default function Sidebar({ rol }: { rol: Rol }) {
   const secciones = menuParaRol(rol);
 

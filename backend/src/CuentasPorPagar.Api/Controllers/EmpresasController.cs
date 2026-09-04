@@ -1,16 +1,16 @@
+using CuentasPorPagar.Api.Auth;
 using CuentasPorPagar.Application.Abstractions.Repositories;
+using CuentasPorPagar.Application.Common;
 using CuentasPorPagar.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CuentasPorPagar.Api.Controllers;
 
-/// <summary>
-/// Maestro de Empresas (sección 57). Sin [Authorize] todavía: la autenticación/RBAC
-/// se conecta en la Fase 3; hasta entonces estos endpoints son solo para validar
-/// que el pipeline Controller -> Application -> Repository (Mock/Access) funciona.
-/// </summary>
+/// <summary>Maestro de Empresas (sección 57). Requiere sesión; crear/editar requiere admin.configurar.</summary>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class EmpresasController : ControllerBase
 {
     private readonly IEmpresaRepository _empresas;
@@ -34,6 +34,7 @@ public class EmpresasController : ControllerBase
     public record CrearEmpresaRequest(string RazonSocial, string Nit, string NombreCorto);
 
     [HttpPost]
+    [PermisoRequerido(Permisos.AdminConfigurar)]
     public async Task<IActionResult> Crear([FromBody] CrearEmpresaRequest request, CancellationToken ct)
     {
         if (await _empresas.ObtenerPorNitAsync(request.Nit, ct) is not null)

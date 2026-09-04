@@ -24,6 +24,11 @@ export const ROLES: Rol[] = [
   "Administrador",
 ];
 
+/** El backend (DemoDataSeeder) usa estos mismos nombres de rol — casteo seguro con fallback. */
+export function comoRolConocido(nombreRol: string | undefined): Rol {
+  return (ROLES as string[]).includes(nombreRol ?? "") ? (nombreRol as Rol) : "Solicitante";
+}
+
 export interface ItemMenu {
   etiqueta: string;
   href: string;

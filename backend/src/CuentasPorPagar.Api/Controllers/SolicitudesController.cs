@@ -1,22 +1,28 @@
+using System.Security.Claims;
+using CuentasPorPagar.Api.Auth;
 using CuentasPorPagar.Application.Abstractions.Repositories;
+using CuentasPorPagar.Application.Common;
 using CuentasPorPagar.Application.Services;
 using CuentasPorPagar.Domain.Entities;
 using CuentasPorPagar.Domain.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CuentasPorPagar.Api.Controllers;
 
 /// <summary>
-/// Checkpoint de la Fase 2: demuestra que crear un borrador y radicarlo pasa
-/// realmente por SecuenciaRadicadoService (consecutivo seguro, sección 20) y
-/// WorkflowEngineService (transición validada + auditoría, sección 9/18/99).
+/// Checkpoint de las Fases 2/3: demuestra que crear un borrador y radicarlo pasa
+/// realmente por SecuenciaRadicadoService (consecutivo seguro, sección 20),
+/// WorkflowEngineService (transición validada + auditoría, sección 9/18/99), y
+/// que ambas acciones exigen el permiso correspondiente (sección 8) verificado
+/// en el JWT del usuario autenticado — nunca un UsuarioId enviado por el cliente.
 ///
-/// Deliberadamente NO incluye todavía documentos obligatorios, motor de
-/// aprobación, ni permisos (Fases 5-7); el usuario actuante se recibe por
-/// query string como sustituto temporal del usuario autenticado (Fase 3).
+/// Deliberadamente NO incluye todavía documentos obligatorios ni motor de
+/// aprobación (Fases 5-7).
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class SolicitudesController : ControllerBase
 {
     private readonly ISolicitudPagoRepository _solicitudes;
@@ -36,6 +42,9 @@ public class SolicitudesController : ControllerBase
         _auditoria = auditoria;
     }
 
+    /// <summary>Id del usuario autenticado, tomado del JWT — nunca confiar en un valor enviado por el cliente.</summary>
+    private int UsuarioIdActual => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!);
+
     [HttpGet("{id:int}")]
     public async Task<IActionResult> ObtenerPorId(int id, CancellationToken ct)
     {
@@ -51,9 +60,10 @@ public class SolicitudesController : ControllerBase
         int EmpresaId, int TipoSolicitudId, int ProveedorId, string TipoDocumento,
         string? NumeroFactura, DateTime FechaEmision, DateTime FechaVencimiento,
         decimal ValorAntesImpuestos, decimal Iva, decimal ValorBruto, string Concepto,
-        int? ProyectoId, int? CentroCostoId, int ResponsableId, int SolicitanteId);
+        int? ProyectoId, int? CentroCostoId, int ResponsableId);
 
     [HttpPost("borradores")]
+    [PermisoRequerido(Permisos.SolicitudCrear)]
     public async Task<IActionResult> CrearBorrador([FromBody] CrearBorradorRequest request, CancellationToken ct)
     {
         // Detección de posibles facturas duplicadas (sección 17): informativa, no bloqueante.
@@ -61,6 +71,8 @@ public class SolicitudesController : ControllerBase
             ? await _solicitudes.BuscarPosiblesDuplicadosAsync(
                 request.EmpresaId, request.ProveedorId, request.NumeroFactura, request.FechaEmision, request.ValorBruto, ct)
             : Array.Empty<SolicitudPago>();
+
+        var solicitanteId = UsuarioIdActual;
 
         var solicitud = await _solicitudes.CrearAsync(new SolicitudPago
         {
@@ -79,12 +91,12 @@ public class SolicitudesController : ControllerBase
             ProyectoId = request.ProyectoId,
             CentroCostoId = request.CentroCostoId,
             ResponsableId = request.ResponsableId,
-            SolicitanteId = request.SolicitanteId,
+            SolicitanteId = solicitanteId,
             Estado = EstadoSolicitud.Borrador
         }, ct);
 
         await _auditoria.RegistrarAsync(
-            request.SolicitanteId, "Crear", "Solicitudes", nameof(SolicitudPago), solicitud.Id,
+            solicitanteId, "Crear", "Solicitudes", nameof(SolicitudPago), solicitud.Id,
             valorAnterior: null, valorNuevo: "Borrador", comentario: null, ct: ct);
 
         return Ok(new
@@ -94,10 +106,9 @@ public class SolicitudesController : ControllerBase
         });
     }
 
-    public record RadicarRequest(int UsuarioId);
-
     [HttpPost("{id:int}/radicar")]
-    public async Task<IActionResult> Radicar(int id, [FromBody] RadicarRequest request, CancellationToken ct)
+    [PermisoRequerido(Permisos.SolicitudRadicar)]
+    public async Task<IActionResult> Radicar(int id, CancellationToken ct)
     {
         var solicitud = await _solicitudes.ObtenerPorIdAsync(id, ct);
         if (solicitud is null) return NotFound();
@@ -115,7 +126,7 @@ public class SolicitudesController : ControllerBase
 
         // TODO (Fase 5/6): validar documentos obligatorios dinámicos antes de permitir
         // el paso a PendienteDeAprobacion (sección 12). Por ahora transiciona directo.
-        await _workflow.TransicionarAsync(solicitud, EstadoSolicitud.Radicado, request.UsuarioId, "Solicitudes", ct: ct);
+        await _workflow.TransicionarAsync(solicitud, EstadoSolicitud.Radicado, UsuarioIdActual, "Solicitudes", ct: ct);
 
         return Ok(solicitud);
     }

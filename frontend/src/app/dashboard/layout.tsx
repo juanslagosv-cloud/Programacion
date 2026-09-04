@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import { cerrarSesion, obtenerSesion, type SesionDemo } from "@/lib/session";
+import { comoRolConocido } from "@/lib/roles";
+import { cerrarSesion, obtenerSesion, rolPrincipal, type Sesion } from "@/lib/session";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [sesion, setSesion] = useState<SesionDemo | null | undefined>(undefined);
+  const [sesion, setSesion] = useState<Sesion | null | undefined>(undefined);
 
   useEffect(() => {
     const actual = obtenerSesion();
@@ -26,11 +27,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <Sidebar rol={sesion.rol} />
+      <Sidebar rol={comoRolConocido(rolPrincipal(sesion))} />
       <div className="flex flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
           <div className="text-sm text-slate-500">
-            {sesion.rol} · {sesion.correo}
+            {sesion.perfil.roles.join(", ")} · {sesion.perfil.correo}
           </div>
           <button
             onClick={() => {

@@ -29,3 +29,13 @@ public class ReglaDeNegocioException : Exception
 {
     public ReglaDeNegocioException(string mensaje) : base(mensaje) { }
 }
+
+/// <summary>
+/// Se lanza cuando el login falla: token externo inválido, o el correo no existe
+/// / no está Activo en la tabla Usuarios (sección 4: "el login de Google por sí
+/// solo no basta").
+/// </summary>
+public class AutenticacionInvalidaException : Exception
+{
+    public AutenticacionInvalidaException(string mensaje) : base(mensaje) { }
+}
