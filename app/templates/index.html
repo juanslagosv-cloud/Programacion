@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ecodes HR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <img src="/static/images/ecodes_ingenieria_ltda_logo.jpg" alt="Ecodes" class="sidebar-logo" />
+        </div>
+
+        <div class="sidebar-panel">
+          <nav class="menu">
+            <button class="nav-item active" data-view="empleados">Empleados</button>
+            <button class="nav-item" data-view="proyectos">Proyectos</button>
+            <button class="nav-item" data-view="novedades">Novedades</button>
+            <button class="nav-item" data-view="nomina">Nómina</button>
+            <button class="nav-item" data-view="alertas">Alertas</button>
+          </nav>
+
+          <div class="sidebar-footer">
+            <button id="logoutBtn" class="btn btn-ghost sidebar-logout">Cerrar sesión</button>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main-panel">
+        <header class="topbar">
+          <div>
+            <p class="crumb">Talento Humano</p>
+            <h1 id="pageTitle">Empleados</h1>
+          </div>
+          <div class="topbar-actions">
+            <div id="topbarActionSlot"></div>
+            <button id="exportExcelBtn" class="btn btn-primary">Exportar a Excel</button>
+          </div>
+        </header>
+
+        <main id="appContent" class="content"></main>
+      </div>
+    </div>
+
+    <div id="sidePanel" class="side-panel hidden"></div>
+
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>
