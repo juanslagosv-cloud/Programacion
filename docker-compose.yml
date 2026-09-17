@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ecodes_th_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ecodes
+      POSTGRES_PASSWORD: ecodes
+      POSTGRES_DB: ecodes_th
+    ports:
+      - "5432:5432"
+    volumes:
+      - ecodes_th_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecodes -d ecodes_th"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ecodes_th_pgdata:
