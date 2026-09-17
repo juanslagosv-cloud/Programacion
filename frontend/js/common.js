@@ -145,7 +145,7 @@ function renderShell(activePage, pageTitle) {
   document.getElementById("sidebar-slot").innerHTML = `
     <aside class="sidebar">
       <div class="brand">
-        <img src="assets/logo.svg" class="brand-mark" alt="Ecodes">
+        <img src="assets/logo.jpg" class="brand-mark" alt="Ecodes">
         <div class="brand-text">
           <span class="brand-name">Ecodes</span>
           <span class="brand-sub">Colombia · Perú · Argentina</span>

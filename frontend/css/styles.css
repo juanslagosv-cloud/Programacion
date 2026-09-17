@@ -173,7 +173,11 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
    Logo
    -------------------------------------------------------------------------- */
 .brand { display: flex; align-items: center; gap: 10px; }
-.brand-mark { width: 34px; height: 34px; flex-shrink: 0; }
+.brand-mark {
+  width: 34px; height: 34px; flex-shrink: 0; object-fit: contain;
+  background: #ffffff; border-radius: 8px; padding: 2px;
+  box-shadow: 0 0 0 1px var(--border);
+}
 .brand-name {
   font-family: var(--font-heading);
   font-weight: 700;
