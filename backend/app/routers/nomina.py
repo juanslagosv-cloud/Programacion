@@ -5,25 +5,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import get_current_user, require_write
-from app.models import Empleado, Nomina, Novedad, TipoCargo
+from app.models import Empleado, Nomina, Novedad
 from app.schemas import NominaCreate, NominaOut, NominaResumen
-from app.utils import novedades_del_mes
+from app.utils import calcular_auxilios, novedades_del_mes
 
 router = APIRouter(prefix="/nomina", tags=["Nómina"])
-
-CARGOS_CON_TRANSPORTE = {TipoCargo.operario, TipoCargo.tecnico}
-PALABRAS_CLAVE_CAMPO = ("campo", "monitoreo", "restauracion", "restauración", "forestal")
-
-
-def calcular_auxilios(empleado: Empleado, auxilio_transporte: float, auxilio_movilidad: float) -> tuple[float, float]:
-    """Aplica las reglas de negocio de auxilios cuando no vienen definidos explícitamente."""
-    transporte = auxilio_transporte
-    movilidad = auxilio_movilidad
-    if transporte == 0 and empleado.tipo_cargo in CARGOS_CON_TRANSPORTE:
-        transporte = 140000
-    if movilidad == 0 and any(p in empleado.nombre_cargo.lower() for p in PALABRAS_CLAVE_CAMPO):
-        movilidad = 100000
-    return transporte, movilidad
 
 
 def _to_out(nomina: Nomina, db: Session) -> NominaOut:
@@ -80,7 +66,7 @@ def crear_nomina(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empleado no encontrado")
 
     transporte, movilidad = calcular_auxilios(
-        empleado, payload.auxilio_transporte, payload.auxilio_movilidad
+        empleado, payload.salario_base, payload.auxilio_transporte, payload.auxilio_movilidad
     )
     total = payload.salario_base + transporte + movilidad - payload.descuentos
 

@@ -2,6 +2,41 @@ from datetime import date
 
 from app.models import Empleado, Novedad, Proyecto, TipoNovedad
 
+# ---------------------------------------------------------------------------
+# Reglas de auxilios — valores legales vigentes en Colombia para 2026
+# ---------------------------------------------------------------------------
+
+SALARIO_MINIMO = 1_750_905
+TOPE_AUXILIO_TRANSPORTE = 2 * SALARIO_MINIMO  # $3.501.810
+AUXILIO_TRANSPORTE = 249_095
+AUXILIO_MOVILIDAD = 100_000
+
+PALABRAS_CLAVE_CAMPO = ("campo", "monitoreo", "restauracion", "restauración", "forestal")
+
+
+def aplica_auxilio_transporte(salario_base: float) -> bool:
+    """El auxilio de transporte es de ley y solo aplica a quienes devengan
+    hasta 2 salarios mínimos mensuales legales vigentes."""
+    return salario_base <= TOPE_AUXILIO_TRANSPORTE
+
+
+def aplica_auxilio_movilidad(empleado: Empleado) -> bool:
+    """Auxilio interno de Ecodes para roles de campo/monitoreo."""
+    return any(p in empleado.nombre_cargo.lower() for p in PALABRAS_CLAVE_CAMPO)
+
+
+def calcular_auxilios(
+    empleado: Empleado, salario_base: float, auxilio_transporte: float, auxilio_movilidad: float
+) -> tuple[float, float]:
+    """Completa los auxilios que no vengan definidos explícitamente."""
+    transporte = auxilio_transporte
+    movilidad = auxilio_movilidad
+    if transporte == 0 and aplica_auxilio_transporte(salario_base):
+        transporte = AUXILIO_TRANSPORTE
+    if movilidad == 0 and aplica_auxilio_movilidad(empleado):
+        movilidad = AUXILIO_MOVILIDAD
+    return transporte, movilidad
+
 
 def meses_entre(inicio: date, fin: date) -> int:
     if fin < inicio:

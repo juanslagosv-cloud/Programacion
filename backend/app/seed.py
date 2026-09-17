@@ -26,6 +26,7 @@ from app.models import (
     Usuario,
 )
 from app.security import hash_password
+from app.utils import calcular_auxilios
 
 HOY = date.today()
 
@@ -440,12 +441,7 @@ def run():
 
         for periodo in (mes_anterior, periodo_actual):
             for empleado, salario in salarios.items():
-                transporte = 140_000 if empleado.tipo_cargo in (TipoCargo.operario, TipoCargo.tecnico) else 0
-                movilidad = (
-                    100_000
-                    if any(p in empleado.nombre_cargo.lower() for p in ("campo", "monitoreo", "restauracion", "restauración", "forestal"))
-                    else 0
-                )
+                transporte, movilidad = calcular_auxilios(empleado, salario, 0, 0)
                 descuentos = round(salario * 0.08)
                 total = salario + transporte + movilidad - descuentos
                 db.add(

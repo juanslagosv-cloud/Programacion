@@ -167,7 +167,7 @@
               <label>Descuentos</label>
               <input type="number" name="descuentos" min="0" value="0">
             </div>
-            <p class="text-faint" style="font-size:12px;">Si dejas los auxilios en 0, el sistema aplicará automáticamente las reglas por tipo de cargo (transporte para Operarios/Técnicos, movilidad para roles de campo/monitoreo).</p>
+            <p class="text-faint" style="font-size:12px;">Si dejas los auxilios en 0, el sistema los calcula automáticamente: auxilio de transporte ($249.095) para quienes devengan hasta 2 SMLMV ($3.501.810), y auxilio de movilidad para roles de campo/monitoreo.</p>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
