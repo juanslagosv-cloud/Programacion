@@ -423,27 +423,29 @@ def run():
         periodo_actual = HOY.strftime("%Y-%m")
         mes_anterior = (HOY.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
 
+        # salario base y auxilio de movilidad que la empresa asigna a cada persona
+        # (el de movilidad es discrecional: solo lo reciben los roles de campo)
         salarios = {
-            e_maria: 9_500_000,
-            e_andres: 10_200_000,
-            e_laura: 6_800_000,
-            e_juan: 2_600_000,
-            e_diana: 7_200_000,
-            e_carlos: 7_800_000,
-            e_valentina: 1_900_000,
-            e_ricardo: 8_500_000,
-            e_paula: 4_200_000,
-            e_jorge: 2_100_000,
-            e_natalia: 3_800_000,
-            e_sofia: 1_800_000,
-            e_pedro: 15_000_000,
+            e_maria: (9_500_000, 0),
+            e_andres: (10_200_000, 0),
+            e_laura: (6_800_000, 100_000),
+            e_juan: (2_600_000, 100_000),
+            e_diana: (7_200_000, 100_000),
+            e_carlos: (7_800_000, 100_000),
+            e_valentina: (1_900_000, 100_000),
+            e_ricardo: (8_500_000, 0),
+            e_paula: (4_200_000, 0),
+            e_jorge: (2_100_000, 100_000),
+            e_natalia: (3_800_000, 0),
+            e_sofia: (1_800_000, 0),
+            e_pedro: (15_000_000, 0),
         }
 
         for periodo in (mes_anterior, periodo_actual):
-            for empleado, salario in salarios.items():
+            for empleado, (salario, movilidad) in salarios.items():
                 # Salud y pensión del trabajador las calcula la liquidación;
                 # aquí no se registran otros descuentos adicionales.
-                liq = liquidar_nomina(empleado, salario)
+                liq = liquidar_nomina(empleado, salario, auxilio_movilidad=movilidad)
                 db.add(
                     Nomina(
                         empleado=empleado,

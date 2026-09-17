@@ -173,19 +173,22 @@
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Auxilio de transporte</label>
-                <input type="number" name="auxilio_transporte" min="0" value="0">
-              </div>
-              <div class="field">
                 <label>Auxilio de movilidad</label>
                 <input type="number" name="auxilio_movilidad" min="0" value="0">
+                <span class="text-faint" style="font-size:11px;">Lo define Ecodes para roles de campo</span>
+              </div>
+              <div class="field">
+                <label>Otros descuentos</label>
+                <input type="number" name="descuentos" min="0" value="0">
+                <span class="text-faint" style="font-size:11px;">Préstamos, embargos, etc.</span>
               </div>
             </div>
             <div class="field">
-              <label>Descuentos</label>
-              <input type="number" name="descuentos" min="0" value="0">
+              <label>Auxilio de transporte</label>
+              <input type="number" name="auxilio_transporte" min="0" value="0">
+              <span class="text-faint" style="font-size:11px;">Déjalo en 0 y el sistema aplica el valor de ley ($249.095) si el salario no supera 2 SMLMV ($3.501.810)</span>
             </div>
-            <p class="text-faint" style="font-size:12px;">El sistema calcula automáticamente el auxilio de transporte ($249.095, solo hasta 2 SMLMV = $3.501.810), las deducciones de salud y pensión (4% cada una) y las prestaciones sociales que asume la empresa (prima, cesantías e intereses, vacaciones, pensión del empleador y ARL). El campo "Descuentos" es solo para descuentos adicionales (préstamos, embargos, etc.).</p>
+            <p class="text-faint" style="font-size:12px;">Las deducciones de salud y pensión (4% cada una) y las prestaciones que asume la empresa (prima, cesantías e intereses, vacaciones, pensión del empleador y ARL) se calculan automáticamente.</p>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>

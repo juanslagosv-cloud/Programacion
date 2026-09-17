@@ -188,8 +188,8 @@ script de seed, así que nunca se desincronizan.
 |----------|-----------:|-------|
 | Salario mínimo (SMLMV) | $1.750.905 | Referencia legal |
 | Tope auxilio de transporte | $3.501.810 | 2 SMLMV |
-| **Auxilio de transporte** | **$249.095** | Obligatorio por ley **solo** para quien devengue hasta 2 SMLMV. No depende del tipo de cargo. |
-| **Auxilio de movilidad** | **$100.000** | Auxilio interno de Ecodes para roles de campo. **No es salarial ni prestacional**: no entra en ninguna base de cálculo. |
+| **Auxilio de transporte** | **$249.095** | Obligatorio por ley **solo** para quien devengue hasta 2 SMLMV. No depende del tipo de cargo. Si se deja en `0` al registrar la nómina, el sistema lo aplica automáticamente. |
+| **Auxilio de movilidad** | lo define Ecodes | Auxilio interno para roles de campo. **No es salarial ni prestacional**: no entra en ninguna base, solo suma al costo. Al ser una decisión de la empresa, **se registra persona a persona** y el sistema nunca lo calcula ni lo asume. |
 
 ### 6.2. Deducciones al trabajador
 

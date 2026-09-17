@@ -48,27 +48,24 @@ def aplica_auxilio_transporte(salario_base: float) -> bool:
     return salario_base <= TOPE_AUXILIO_TRANSPORTE
 
 
-def aplica_auxilio_movilidad(empleado: Empleado) -> bool:
-    """Auxilio interno de Ecodes para roles de campo/monitoreo."""
+def es_rol_campo(empleado: Empleado) -> bool:
+    """Identifica los cargos de campo, que cotizan una clase de riesgo de ARL
+    más alta que los de oficina."""
     return any(p in empleado.nombre_cargo.lower() for p in PALABRAS_CLAVE_CAMPO)
 
 
-def calcular_auxilios(
-    empleado: Empleado, salario_base: float, auxilio_transporte: float, auxilio_movilidad: float
-) -> tuple[float, float]:
-    """Completa los auxilios que no vengan definidos explícitamente."""
-    transporte = auxilio_transporte
-    movilidad = auxilio_movilidad
-    if transporte == 0 and aplica_auxilio_transporte(salario_base):
-        transporte = AUXILIO_TRANSPORTE
-    if movilidad == 0 and aplica_auxilio_movilidad(empleado):
-        movilidad = AUXILIO_MOVILIDAD
-    return transporte, movilidad
+def calcular_auxilio_transporte(salario_base: float, auxilio_transporte: float) -> float:
+    """El auxilio de transporte es de ley, así que se completa solo cuando no
+    viene definido. El de movilidad no se calcula: lo decide la empresa y se
+    registra tal como lo digite Talento Humano."""
+    if auxilio_transporte == 0 and aplica_auxilio_transporte(salario_base):
+        return AUXILIO_TRANSPORTE
+    return auxilio_transporte
 
 
 def tasa_arl(empleado: Empleado) -> float:
     """Los roles de campo cotizan riesgo V; los de oficina, riesgo I."""
-    return TASA_ARL_RIESGO_V if aplica_auxilio_movilidad(empleado) else TASA_ARL_RIESGO_I
+    return TASA_ARL_RIESGO_V if es_rol_campo(empleado) else TASA_ARL_RIESGO_I
 
 
 @dataclass
@@ -113,11 +110,11 @@ def liquidar_nomina(
     - El auxilio de transporte SÍ es base para prima, cesantías e intereses,
       pero NO hace parte del IBC de seguridad social ni de las vacaciones.
     - El auxilio de movilidad no es salarial ni prestacional: no entra en
-      ninguna base, solo suma al costo de la empresa.
+      ninguna base, solo suma al costo de la empresa. Al ser una decisión de
+      la empresa, se toma exactamente el valor que se registre.
     """
-    transporte, movilidad = calcular_auxilios(
-        empleado, salario_base, auxilio_transporte, auxilio_movilidad
-    )
+    transporte = calcular_auxilio_transporte(salario_base, auxilio_transporte)
+    movilidad = auxilio_movilidad
 
     base_prestacional = salario_base + transporte
     base_seguridad_social = salario_base
