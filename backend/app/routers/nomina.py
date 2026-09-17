@@ -7,7 +7,7 @@ from app.database import get_db
 from app.deps import get_current_user, require_write
 from app.models import Empleado, Nomina, Novedad
 from app.schemas import NominaCreate, NominaOut, NominaResumen
-from app.utils import calcular_auxilios, novedades_del_mes
+from app.utils import liquidar_nomina, novedades_del_mes
 
 router = APIRouter(prefix="/nomina", tags=["Nómina"])
 
@@ -42,6 +42,7 @@ def resumen_nomina(
     periodo = periodo or date.today().strftime("%Y-%m")
     registros = db.query(Nomina).filter(Nomina.periodo == periodo).all()
     total = sum(float(n.total) for n in registros)
+    costo_empleador = sum(float(n.costo_empleador) for n in registros)
     sin_procesar = db.query(Novedad).filter(Novedad.procesada.is_(False)).count()
 
     hoy = date.today()
@@ -52,6 +53,8 @@ def resumen_nomina(
 
     return NominaResumen(
         nomina_total_mes=round(total, 2),
+        costo_total_empleador=round(costo_empleador, 2),
+        carga_prestacional=round((costo_empleador / total - 1) * 100, 1) if total else 0,
         proximo_pago=siguiente.isoformat(),
         novedades_sin_procesar=sin_procesar,
     )
@@ -65,19 +68,34 @@ def crear_nomina(
     if empleado is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empleado no encontrado")
 
-    transporte, movilidad = calcular_auxilios(
-        empleado, payload.salario_base, payload.auxilio_transporte, payload.auxilio_movilidad
+    liq = liquidar_nomina(
+        empleado,
+        payload.salario_base,
+        payload.auxilio_transporte,
+        payload.auxilio_movilidad,
+        payload.descuentos,
     )
-    total = payload.salario_base + transporte + movilidad - payload.descuentos
 
     nomina = Nomina(
         empleado_id=payload.empleado_id,
         periodo=payload.periodo,
-        salario_base=payload.salario_base,
-        auxilio_transporte=transporte,
-        auxilio_movilidad=movilidad,
-        descuentos=payload.descuentos,
-        total=total,
+        salario_base=liq.salario_base,
+        auxilio_transporte=liq.auxilio_transporte,
+        auxilio_movilidad=liq.auxilio_movilidad,
+        salud_empleado=liq.salud_empleado,
+        pension_empleado=liq.pension_empleado,
+        descuentos=liq.otros_descuentos,
+        total_descuentos=liq.total_descuentos,
+        total=liq.neto_pagado,
+        prima=liq.prima,
+        cesantias=liq.cesantias,
+        intereses_cesantias=liq.intereses_cesantias,
+        provision_vacaciones=liq.provision_vacaciones,
+        pension_empleador=liq.pension_empleador,
+        arl=liq.arl,
+        otros_aportes=liq.otros_aportes,
+        total_prestaciones=liq.total_prestaciones,
+        costo_empleador=liq.costo_empleador,
         pagada=payload.pagada,
     )
     db.add(nomina)

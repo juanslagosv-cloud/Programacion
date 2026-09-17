@@ -242,13 +242,30 @@ class NominaCreate(NominaBase):
 class NominaOut(NominaBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    total: float
+    # Deducciones al trabajador
+    salud_empleado: float = 0
+    pension_empleado: float = 0
+    total_descuentos: float = 0
+    total: float  # neto pagado al trabajador
+    # Prestaciones sociales y aportes del empleador
+    prima: float = 0
+    cesantias: float = 0
+    intereses_cesantias: float = 0
+    provision_vacaciones: float = 0
+    pension_empleador: float = 0
+    arl: float = 0
+    otros_aportes: float = 0
+    total_prestaciones: float = 0
+    costo_empleador: float = 0
+
     empleado_nombre: Optional[str] = None
     novedades_mes: int = 0
 
 
 class NominaResumen(BaseModel):
-    nomina_total_mes: float
+    nomina_total_mes: float  # neto pagado a los trabajadores
+    costo_total_empleador: float  # lo que realmente le cuesta a la empresa
+    carga_prestacional: float  # % que las prestaciones suman sobre el neto pagado
     proximo_pago: Optional[str] = None
     novedades_sin_procesar: int
 

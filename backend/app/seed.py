@@ -26,7 +26,7 @@ from app.models import (
     Usuario,
 )
 from app.security import hash_password
-from app.utils import calcular_auxilios
+from app.utils import liquidar_nomina
 
 HOY = date.today()
 
@@ -441,18 +441,30 @@ def run():
 
         for periodo in (mes_anterior, periodo_actual):
             for empleado, salario in salarios.items():
-                transporte, movilidad = calcular_auxilios(empleado, salario, 0, 0)
-                descuentos = round(salario * 0.08)
-                total = salario + transporte + movilidad - descuentos
+                # Salud y pensión del trabajador las calcula la liquidación;
+                # aquí no se registran otros descuentos adicionales.
+                liq = liquidar_nomina(empleado, salario)
                 db.add(
                     Nomina(
                         empleado=empleado,
                         periodo=periodo,
-                        salario_base=salario,
-                        auxilio_transporte=transporte,
-                        auxilio_movilidad=movilidad,
-                        descuentos=descuentos,
-                        total=total,
+                        salario_base=liq.salario_base,
+                        auxilio_transporte=liq.auxilio_transporte,
+                        auxilio_movilidad=liq.auxilio_movilidad,
+                        salud_empleado=liq.salud_empleado,
+                        pension_empleado=liq.pension_empleado,
+                        descuentos=liq.otros_descuentos,
+                        total_descuentos=liq.total_descuentos,
+                        total=liq.neto_pagado,
+                        prima=liq.prima,
+                        cesantias=liq.cesantias,
+                        intereses_cesantias=liq.intereses_cesantias,
+                        provision_vacaciones=liq.provision_vacaciones,
+                        pension_empleador=liq.pension_empleador,
+                        arl=liq.arl,
+                        otros_aportes=liq.otros_aportes,
+                        total_prestaciones=liq.total_prestaciones,
+                        costo_empleador=liq.costo_empleador,
                         pagada=(periodo == mes_anterior),
                     )
                 )

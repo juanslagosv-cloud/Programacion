@@ -176,22 +176,70 @@ para que el navegador pueda llamar a la API.
 
 ---
 
-## 6. Reglas de auxilios
+## 6. Reglas de liquidación de nómina
 
-Definidas en un solo lugar (`backend/app/utils.py`) y usadas tanto por el
-endpoint de nómina como por el script de seed:
+Todas las tasas y valores viven en un solo lugar (`backend/app/utils.py`,
+función `liquidar_nomina`) y los usan tanto el endpoint de nómina como el
+script de seed, así que nunca se desincronizan.
+
+### 6.1. Devengado
 
 | Concepto | Valor 2026 | Regla |
 |----------|-----------:|-------|
 | Salario mínimo (SMLMV) | $1.750.905 | Referencia legal |
 | Tope auxilio de transporte | $3.501.810 | 2 SMLMV |
-| **Auxilio de transporte** | **$249.095** | Obligatorio por ley **solo** para quien devengue un salario ordinario **hasta 2 SMLMV**. No depende del tipo de cargo. |
-| **Auxilio de movilidad** | **$100.000** | Auxilio interno de Ecodes para roles de campo (cargos que contienen "campo", "monitoreo", "restauración" o "forestal"). |
+| **Auxilio de transporte** | **$249.095** | Obligatorio por ley **solo** para quien devengue hasta 2 SMLMV. No depende del tipo de cargo. |
+| **Auxilio de movilidad** | **$100.000** | Auxilio interno de Ecodes para roles de campo. **No es salarial ni prestacional**: no entra en ninguna base de cálculo. |
 
-Al registrar una nómina, si los auxilios se dejan en `0` el sistema los calcula
-con estas reglas; si se envía un valor explícito, ese valor se respeta.
+### 6.2. Deducciones al trabajador
 
-> Estos valores cambian cada año con el decreto de salario mínimo: para
+| Concepto | Tasa | Base |
+|----------|-----:|------|
+| Salud | 4% | Salario base |
+| Pensión | 4% | Salario base |
+
+El campo `descuentos` queda libre para descuentos adicionales (préstamos,
+embargos, etc.); salud y pensión se calculan aparte.
+
+### 6.3. Costo adicional que asume el empleador
+
+| Concepto | Tasa mensual | Base | Equivalente anual |
+|----------|-------------:|------|-------------------|
+| Prima de servicios | 8,33% | Salario + auxilio de transporte | 1 salario al año |
+| Cesantías | 8,33% | Salario + auxilio de transporte | 1 salario al año |
+| Intereses de cesantías | 1,00% | Salario + auxilio de transporte | 12% anual sobre cesantías |
+| Provisión de vacaciones | 4,17% | Salario base | 15 días hábiles al año |
+| Pensión (empleador) | 12% | Salario base | — |
+| ARL (la paga 100% el empleador) | 0,522% oficina / 6,960% campo | Salario base | Según clase de riesgo |
+
+**Bases de cálculo** (es donde se equivocan la mayoría de las hojas de Excel):
+
+- El auxilio de transporte **sí** es base para prima, cesantías e intereses,
+  pero **no** para vacaciones ni para seguridad social.
+- El auxilio de movilidad no entra en ninguna base.
+
+> **Dos supuestos que conviene confirmar con contabilidad:**
+> 1. **Clase de riesgo de la ARL**: se asume riesgo V para cargos de campo y
+>    riesgo I para oficina. Se ajusta en `TASA_ARL_RIESGO_*`.
+> 2. **Exoneración de la Ley 1607 de 2012**: salud del empleador (8,5%), caja de
+>    compensación (4%), SENA (2%) e ICBF (3%) están en `0.0`. Si Ecodes no está
+>    exonerada, basta con poner las tasas reales en esas constantes y el cálculo
+>    las incluye automáticamente.
+
+### 6.4. Por qué importa para los indicadores
+
+El **costo por proyecto se prorratea sobre el costo real del empleador**, no
+sobre el salario: una persona cuesta entre 1,34× y 1,62× su salario según su
+nivel salarial y su clase de riesgo. Con los datos de ejemplo, la carga
+prestacional total es de **+47,7%** sobre el neto pagado — esa es la diferencia
+entre lo que un proyecto *parece* costar y lo que realmente cuesta.
+
+La hoja `nomina` del Excel exporta el desglose completo (`salud_empleado`,
+`pension_empleado`, `prima`, `cesantias`, `intereses_cesantias`,
+`provision_vacaciones`, `pension_empleador`, `arl`, `total_prestaciones`,
+`costo_empleador`) para poder analizarlo en Power BI.
+
+> Los valores cambian cada año con el decreto de salario mínimo: para
 > actualizarlos basta editar las constantes al inicio de `backend/app/utils.py`.
 
 ---

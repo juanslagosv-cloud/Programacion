@@ -219,11 +219,30 @@ class Nomina(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     empleado_id: Mapped[int] = mapped_column(ForeignKey("empleados.id", ondelete="CASCADE"))
     periodo: Mapped[str] = mapped_column(String(7))  # formato YYYY-MM
+
+    # Devengado
     salario_base: Mapped[float] = mapped_column(Numeric(12, 2))
     auxilio_transporte: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     auxilio_movilidad: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
-    descuentos: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
-    total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+
+    # Deducciones al trabajador
+    salud_empleado: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    pension_empleado: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    descuentos: Mapped[float] = mapped_column(Numeric(12, 2), default=0)  # otros descuentos
+    total_descuentos: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)  # neto pagado
+
+    # Prestaciones sociales y aportes que asume el empleador
+    prima: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    cesantias: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    intereses_cesantias: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    provision_vacaciones: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    pension_empleador: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    arl: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    otros_aportes: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    total_prestaciones: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    costo_empleador: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+
     pagada: Mapped[bool] = mapped_column(default=False)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

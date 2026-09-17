@@ -49,9 +49,14 @@
       const resumen = await api.get(`/nomina/resumen?periodo=${state.periodo}`);
       host.innerHTML = `
         <div class="kpi-card fade-up">
-          <div class="kpi-label">Nómina total del mes</div>
+          <div class="kpi-label">Neto pagado a trabajadores</div>
           <div class="kpi-value" id="kpi-total">$0</div>
           <div class="kpi-sub">${formatMonthPeriodo(state.periodo)}</div>
+        </div>
+        <div class="kpi-card fade-up">
+          <div class="kpi-label">Costo real para la empresa</div>
+          <div class="kpi-value" id="kpi-costo">$0</div>
+          <div class="kpi-sub">Carga prestacional: +${resumen.carga_prestacional}% sobre el neto</div>
         </div>
         <div class="kpi-card fade-up">
           <div class="kpi-label">Próximo pago</div>
@@ -65,6 +70,7 @@
         </div>
       `;
       animateNumber(document.getElementById("kpi-total"), resumen.nomina_total_mes, { money: true });
+      animateNumber(document.getElementById("kpi-costo"), resumen.costo_total_empleador, { money: true });
       animateNumber(document.getElementById("kpi-novedades"), resumen.novedades_sin_procesar);
     } catch (err) {
       handleApiError(err);
@@ -93,13 +99,25 @@
       .map(
         (n) => `
       <tr>
-        <td><div class="person-name">${escapeHtml(n.empleado_nombre)}</div></td>
+        <td>
+          <div class="person-name">${escapeHtml(n.empleado_nombre)}</div>
+          ${n.novedades_mes > 0 ? `<span class="person-sub">${n.novedades_mes} novedad(es) este mes</span>` : ""}
+        </td>
         <td>${formatMoney(n.salario_base)}</td>
-        <td>${formatMoney(n.auxilio_transporte)}</td>
-        <td>${formatMoney(n.auxilio_movilidad)}</td>
-        <td>${formatMoney(n.descuentos)}</td>
-        <td>${n.novedades_mes > 0 ? `<span class="badge badge-warning">${n.novedades_mes}</span>` : '<span class="text-faint">0</span>'}</td>
+        <td>
+          ${formatMoney(n.auxilio_transporte + n.auxilio_movilidad)}
+          <div class="person-sub">Transporte ${formatMoney(n.auxilio_transporte)} · Movilidad ${formatMoney(n.auxilio_movilidad)}</div>
+        </td>
+        <td>
+          ${formatMoney(n.total_descuentos)}
+          <div class="person-sub">Salud ${formatMoney(n.salud_empleado)} · Pensión ${formatMoney(n.pension_empleado)}</div>
+        </td>
         <td><strong>${formatMoney(n.total)}</strong></td>
+        <td>
+          ${formatMoney(n.total_prestaciones)}
+          <div class="person-sub">Prima ${formatMoney(n.prima)} · Cesantías ${formatMoney(n.cesantias)} · Vac. ${formatMoney(n.provision_vacaciones)} · Pensión ${formatMoney(n.pension_empleador)} · ARL ${formatMoney(n.arl)}</div>
+        </td>
+        <td><strong>${formatMoney(n.costo_empleador)}</strong></td>
         <td>
           <span class="badge ${n.pagada ? "badge-success" : "badge-neutral"}">${n.pagada ? "Pagada" : "Pendiente"}</span>
           <button class="list-item-remove write-only" data-eliminar="${n.id}" style="margin-left:6px;" title="Eliminar registro">
@@ -167,7 +185,7 @@
               <label>Descuentos</label>
               <input type="number" name="descuentos" min="0" value="0">
             </div>
-            <p class="text-faint" style="font-size:12px;">Si dejas los auxilios en 0, el sistema los calcula automáticamente: auxilio de transporte ($249.095) para quienes devengan hasta 2 SMLMV ($3.501.810), y auxilio de movilidad para roles de campo/monitoreo.</p>
+            <p class="text-faint" style="font-size:12px;">El sistema calcula automáticamente el auxilio de transporte ($249.095, solo hasta 2 SMLMV = $3.501.810), las deducciones de salud y pensión (4% cada una) y las prestaciones sociales que asume la empresa (prima, cesantías e intereses, vacaciones, pensión del empleador y ARL). El campo "Descuentos" es solo para descuentos adicionales (préstamos, embargos, etc.).</p>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
