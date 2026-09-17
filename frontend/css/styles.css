@@ -55,9 +55,9 @@
   --radius-md: 14px;
   --radius-lg: 20px;
 
-  --z-sidebar: 100;
-  --z-topbar: 110;
-  --z-overlay: 200;
+  --z-overlay: 190;
+  --z-sidebar: 200;
+  --z-topbar: 200;
   --z-panel: 210;
   --z-modal: 300;
   --z-toast: 400;
