@@ -378,6 +378,21 @@ La documentación interactiva de la API queda en `https://TU-SERVICIO.onrender.c
 3. Framework Preset: **Other**. No hay que poner comandos de build.
 4. Deploy.
 
+> **Si ya tenías un proyecto de Vercel apuntando a `backend`**, no crees uno
+> nuevo: entra a ese proyecto y ve a **Settings > General > Root Directory**,
+> cámbialo de `backend` a `frontend` y guarda. Después, en **Deployments**, usa
+> el menú **⋯ > Redeploy** del último despliegue. Mientras el Root Directory
+> siga en `backend`, Vercel intentará ejecutar la API de Python como función
+> serverless y cada despliegue fallará con
+> `could not import "app/main.py"` / `FUNCTION_INVOCATION_FAILED`, sin importar
+> los cambios que hagas en el código. En esa misma pantalla puedes renombrar el
+> proyecto para que la URL no siga diciendo "backend".
+
+**El orden importa.** Publica primero el backend en Render (9.1), luego pega su
+URL en `frontend/js/config.js` y sube el cambio, y solo entonces despliega el
+frontend. Si lo haces al revés verás la pantalla de login, pero no podrás
+entrar porque no hay API a la cual conectarse.
+
 El `CORS` ya está resuelto: `render.yaml` define
 `CORS_ORIGIN_REGEX=https://.*\.vercel\.app`, que acepta tanto el dominio
 definitivo como las URLs de vista previa que Vercel genera en cada despliegue.
