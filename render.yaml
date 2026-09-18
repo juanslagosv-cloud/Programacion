@@ -21,7 +21,10 @@ services:
     runtime: python
     plan: free
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
+    # La siembra corre en cada despliegue, pero --solo-si-vacia hace que no
+    # toque nada si la base ya tiene información. Así no hace falta la
+    # pestaña Shell, que el plan gratuito de Render no incluye.
+    buildCommand: pip install -r requirements.txt && python -m app.seed --solo-si-vacia
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /salud
     envVars:

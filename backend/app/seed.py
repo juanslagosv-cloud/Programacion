@@ -2,7 +2,8 @@
 
 Uso:
     cd backend
-    python -m app.seed
+    python -m app.seed                  # BORRA las tablas y las recrea desde cero
+    python -m app.seed --solo-si-vacia  # siembra solo si la base está vacía
 """
 
 from datetime import date, timedelta
@@ -496,5 +497,41 @@ def run():
         db.close()
 
 
-if __name__ == "__main__":
+def run_si_esta_vacia() -> None:
+    """Siembra los datos de ejemplo solo si la base está vacía.
+
+    Pensado para ejecutarse en cada despliegue sin riesgo: si ya hay
+    información cargada no toca nada, así que la primera publicación queda
+    con datos para la demo y las siguientes conservan lo que haya.
+
+    Si la base no responde, no se interrumpe el despliegue: se avisa y se
+    sigue, porque el servicio puede arrancar igual y reintentarlo después.
+    """
+    try:
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        try:
+            ya_hay_datos = db.query(Usuario).first() is not None
+        finally:
+            db.close()
+    except Exception as exc:  # noqa: BLE001 - se informa y se continúa
+        print(f"No se pudo consultar la base ({exc.__class__.__name__}): se omite la siembra.")
+        return
+
+    if ya_hay_datos:
+        print("La base ya tiene datos: no se siembra nada y se conserva la información existente.")
+        return
+
+    print("Base vacía: se cargan los datos de ejemplo.")
     run()
+
+
+if __name__ == "__main__":
+    import sys
+
+    # --solo-si-vacia: no destruye nada, es el modo que se usa al desplegar.
+    # Sin argumentos: BORRA las tablas y las vuelve a crear desde cero.
+    if "--solo-si-vacia" in sys.argv:
+        run_si_esta_vacia()
+    else:
+        run()

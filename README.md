@@ -340,17 +340,11 @@ así que no hay que configurar nada a mano.
    La `JWT_SECRET_KEY` se genera sola.
 4. Espera a que el despliegue termine (la primera vez tarda unos minutos
    instalando pandas y las demás dependencias).
-5. **Siembra los datos de ejemplo una sola vez**: abre la pestaña **Shell** del
-   servicio y ejecuta:
-
-   ```bash
-   python -m app.seed
-   ```
-
-   > ⚠️ El seed hace `drop_all()`: **borra todas las tablas** antes de crear los
-   > datos de ejemplo. Córrelo solo la primera vez. Si ya cargaste información
-   > real de Ecodes, volver a ejecutarlo la elimina.
-
+5. **Los datos de ejemplo se cargan solos.** El `buildCommand` ejecuta
+   `python -m app.seed --solo-si-vacia`, que siembra la base únicamente si
+   está vacía. En los despliegues siguientes detecta que ya hay información y
+   no toca nada, así que lo que cargues de Ecodes no se pierde. No hace falta
+   la pestaña **Shell** — que el plan gratuito de Render no incluye.
 6. Comprueba que quedó bien abriendo `https://TU-SERVICIO.onrender.com/salud`.
    Debe responder:
 
@@ -360,6 +354,11 @@ así que no hay que configurar nada a mano.
 
    Si `base_datos` trae un error, el servicio está vivo pero no alcanza la base:
    revisa `DATABASE_URL` en la pestaña Environment.
+
+> **Si alguna vez quieres volver al estado inicial**, ejecuta el seed sin el
+> parámetro: `python -m app.seed`. Esa forma hace `drop_all()` — **borra todas
+> las tablas** y las recrea con los datos de ejemplo. Úsala solo a propósito y
+> nunca sobre datos reales.
 
 La documentación interactiva de la API queda en `https://TU-SERVICIO.onrender.com/docs`.
 
