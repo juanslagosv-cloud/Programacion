@@ -8,6 +8,7 @@ from app.models import (
     EstadoProyecto,
     Genero,
     NivelEducativo,
+    PeriodicidadPago,
     RolUsuario,
     TipoCargo,
     TipoNovedad,
@@ -122,6 +123,7 @@ class EmpleadoBase(BaseModel):
     tipo_cargo: TipoCargo
     fecha_ingreso: date
     estado: EstadoEmpleado = EstadoEmpleado.activo
+    periodicidad_pago: PeriodicidadPago = PeriodicidadPago.mensual
     vacaciones_ultima_toma: Optional[date] = None
     vacaciones_dias_pendientes: int = 0
 
@@ -143,6 +145,7 @@ class EmpleadoListOut(BaseModel):
     nombre_cargo: str
     tipo_cargo: TipoCargo
     estado: EstadoEmpleado
+    periodicidad_pago: PeriodicidadPago
     fecha_ingreso: date
     antiguedad_meses: int = 0
     proyectos: list[str] = []
@@ -228,7 +231,8 @@ class NovedadOut(NovedadBase):
 class NominaBase(BaseModel):
     empleado_id: int
     periodo: str = Field(pattern=r"^\d{4}-\d{2}$")
-    salario_base: float = Field(ge=0)
+    quincena: Optional[int] = Field(default=None, ge=1, le=2)  # None = mes completo
+    salario_base: float = Field(ge=0)  # salario mensual del contrato
     auxilio_transporte: float = 0
     auxilio_movilidad: float = 0
     descuentos: float = 0
@@ -242,6 +246,9 @@ class NominaCreate(NominaBase):
 class NominaOut(NominaBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    fecha_pago: Optional[date] = None
+    dias_liquidados: int = 30
+    salario_devengado: float = 0
     # Deducciones al trabajador
     salud_empleado: float = 0
     pension_empleado: float = 0
@@ -267,6 +274,9 @@ class NominaResumen(BaseModel):
     costo_total_empleador: float  # lo que realmente le cuesta a la empresa
     carga_prestacional: float  # % que las prestaciones suman sobre el neto pagado
     proximo_pago: Optional[str] = None
+    proximo_pago_concepto: Optional[str] = None  # a quiénes cubre ese pago
+    empleados_mensuales: int = 0
+    empleados_quincenales: int = 0
     novedades_sin_procesar: int
 
 

@@ -88,7 +88,7 @@
 
   async function loadEmpleados() {
     const tbody = document.getElementById("empleados-tbody");
-    tbody.innerHTML = `<tr><td colspan="7" class="table-empty">Cargando empleados…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Cargando empleados…</td></tr>`;
 
     const params = new URLSearchParams();
     Object.entries(state.filtros).forEach(([k, v]) => {
@@ -101,14 +101,14 @@
       renderTable(empleados);
     } catch (err) {
       handleApiError(err);
-      tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No se pudieron cargar los empleados.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No se pudieron cargar los empleados.</td></tr>`;
     }
   }
 
   function renderTable(empleados) {
     const tbody = document.getElementById("empleados-tbody");
     if (!empleados.length) {
-      tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No se encontraron empleados con estos filtros.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No se encontraron empleados con estos filtros.</td></tr>`;
       return;
     }
     tbody.innerHTML = empleados
@@ -126,6 +126,7 @@
         </td>
         <td>${escapeHtml(e.nombre_cargo)}</td>
         <td><span class="badge badge-neutral">${e.tipo_cargo}</span></td>
+        <td><span class="badge ${e.periodicidad_pago === "Quincenal" ? "badge-info" : "badge-neutral"}">${e.periodicidad_pago}</span></td>
         <td>${e.proyectos.length ? e.proyectos.map((p) => `<div class="person-sub">${escapeHtml(p)}</div>`).join("") : '<span class="text-faint">Sin asignar</span>'}</td>
         <td>
           <div class="flex gap-8" style="align-items:center;">
@@ -196,6 +197,7 @@
             <div class="info-item"><div class="label">Fecha de nacimiento</div><div class="value">${formatDate(e.fecha_nacimiento)}</div></div>
             <div class="info-item"><div class="label">Nivel educativo</div><div class="value">${e.nivel_educativo}</div></div>
             <div class="info-item"><div class="label">Tipo de cargo</div><div class="value">${e.tipo_cargo}</div></div>
+            <div class="info-item"><div class="label">Periodicidad de pago</div><div class="value">${e.periodicidad_pago}</div></div>
             <div class="info-item"><div class="label">Fecha de ingreso</div><div class="value">${formatDate(e.fecha_ingreso)}</div></div>
             <div class="info-item"><div class="label">Antigüedad</div><div class="value">${antiguedadTexto(e.antiguedad_meses)}</div></div>
             <div class="info-item" style="grid-column:1/-1;"><div class="label">Dirección</div><div class="value">${escapeHtml(e.direccion) || "—"}</div></div>
@@ -477,6 +479,7 @@
     const gen = e.genero || "Femenino";
     const nivel = e.nivel_educativo || "Profesional";
     const tipo = e.tipo_cargo || "Profesional";
+    const periodicidad = e.periodicidad_pago || "Mensual";
     const estado = e.estado || "Activo";
     return `
       <div class="field-row">
@@ -535,9 +538,16 @@
           </select>
         </div>
         <div class="field">
-          <label>Días de vacaciones pendientes</label>
-          <input type="number" name="vacaciones_dias_pendientes" min="0" value="${e.vacaciones_dias_pendientes ?? 0}">
+          <label>Periodicidad de pago</label>
+          <select name="periodicidad_pago">
+            ${["Mensual", "Quincenal"].map((p) => `<option ${p === periodicidad ? "selected" : ""}>${p}</option>`).join("")}
+          </select>
+          <span class="text-faint" style="font-size:11px;">Mensual: se paga el último día del mes. Quincenal: el 15 y el último día.</span>
         </div>
+      </div>
+      <div class="field">
+        <label>Días de vacaciones pendientes</label>
+        <input type="number" name="vacaciones_dias_pendientes" min="0" value="${e.vacaciones_dias_pendientes ?? 0}">
       </div>
       <div class="field">
         <label>Última toma de vacaciones</label>

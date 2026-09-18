@@ -226,7 +226,39 @@ embargos, etc.); salud y pensión se calculan aparte.
 >    exonerada, basta con poner las tasas reales en esas constantes y el cálculo
 >    las incluye automáticamente.
 
-### 6.4. Por qué importa para los indicadores
+### 6.4. Periodicidad de pago: mensual y quincenal
+
+No todo el mundo cobra el mismo día. Cada empleado tiene un campo
+`periodicidad_pago`:
+
+| Periodicidad | Quiénes | Cuándo se paga | Registros de nómina por mes |
+|--------------|---------|----------------|------------------------------|
+| **Mensual** | Profesionales y administrativos | El último día del mes (los "30 de cada mes") | 1 registro, `quincena = null`, 30 días |
+| **Quincenal** | Operarios y técnicos de campo | El 15 y el último día del mes | 2 registros, `quincena = 1` y `quincena = 2`, 15 días cada uno |
+
+Al registrar una nómina, **el salario base que se digita siempre es el salario
+mensual del contrato**, aunque el pago sea quincenal: el sistema parte el mes
+internamente. Si no se indica la quincena, se asume la primera para quien cobra
+quincenalmente y el mes completo para quien cobra mensual.
+
+**Cómo se parte el mes.** Primero se liquida el mes completo y después se divide:
+la primera quincena se lleva `round(valor / 2)` y la segunda el resto
+(`valor - round(valor / 2)`). Así **las dos quincenas suman exactamente el mes**,
+sin diferencias de un peso que después no cuadren en el Excel. Por eso es normal
+que las dos quincenas de una misma persona difieran en unos pocos pesos: la
+segunda absorbe el ajuste del redondeo.
+
+El endpoint `GET /nomina/resumen` devuelve además la **fecha del próximo pago** y
+a quiénes cubre (`proximo_pago_concepto`), contando cuántas personas cobran
+mensual y cuántas quincenal. Las columnas `quincena`, `fecha_pago`,
+`dias_liquidados` y `salario_devengado` se exportan en la hoja `nomina` del Excel
+para poder analizar el flujo de caja por fecha de desembolso en Power BI.
+
+> Para el prorrateo por proyecto se toma el **último período** de cada persona y
+> se suman sus registros, de modo que un empleado quincenal aporta sus dos
+> quincenas y no se subestima su costo.
+
+### 6.5. Por qué importa para los indicadores
 
 El **costo por proyecto se prorratea sobre el costo real del empleador**, no
 sobre el salario: una persona cuesta entre 1,34× y 1,62× su salario según su

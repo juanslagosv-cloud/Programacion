@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import get_current_user, require_write
-from app.models import Empleado, Nomina, Novedad
+from app.models import Empleado, EstadoEmpleado, Nomina, Novedad, PeriodicidadPago
 from app.schemas import NominaCreate, NominaOut, NominaResumen
-from app.utils import liquidar_nomina, novedades_del_mes
+from app.utils import fecha_de_pago, liquidar_nomina, novedades_del_mes, proximo_pago
 
 router = APIRouter(prefix="/nomina", tags=["Nómina"])
 
@@ -45,17 +45,20 @@ def resumen_nomina(
     costo_empleador = sum(float(n.costo_empleador) for n in registros)
     sin_procesar = db.query(Novedad).filter(Novedad.procesada.is_(False)).count()
 
-    hoy = date.today()
-    if hoy.month == 12:
-        siguiente = date(hoy.year + 1, 1, 5)
-    else:
-        siguiente = date(hoy.year, hoy.month + 1, 5)
+    activos = db.query(Empleado).filter(Empleado.estado == EstadoEmpleado.activo).all()
+    quincenales = [e for e in activos if e.periodicidad_pago == PeriodicidadPago.quincenal]
+    mensuales = [e for e in activos if e.periodicidad_pago == PeriodicidadPago.mensual]
+
+    siguiente, concepto = proximo_pago(len(mensuales), len(quincenales))
 
     return NominaResumen(
         nomina_total_mes=round(total, 2),
         costo_total_empleador=round(costo_empleador, 2),
         carga_prestacional=round((costo_empleador / total - 1) * 100, 1) if total else 0,
         proximo_pago=siguiente.isoformat(),
+        proximo_pago_concepto=concepto,
+        empleados_mensuales=len(mensuales),
+        empleados_quincenales=len(quincenales),
         novedades_sin_procesar=sin_procesar,
     )
 
@@ -68,17 +71,28 @@ def crear_nomina(
     if empleado is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empleado no encontrado")
 
+    # Si no se indica la quincena, se usa la periodicidad configurada al empleado:
+    # a quien cobra quincenalmente se le registra por defecto la primera quincena.
+    quincena = payload.quincena
+    if quincena is None and empleado.periodicidad_pago == PeriodicidadPago.quincenal:
+        quincena = 1
+
     liq = liquidar_nomina(
         empleado,
         payload.salario_base,
         payload.auxilio_transporte,
         payload.auxilio_movilidad,
         payload.descuentos,
+        quincena=quincena,
     )
 
     nomina = Nomina(
         empleado_id=payload.empleado_id,
         periodo=payload.periodo,
+        quincena=quincena,
+        fecha_pago=fecha_de_pago(payload.periodo, quincena),
+        dias_liquidados=liq.dias_liquidados,
+        salario_devengado=liq.salario_devengado,
         salario_base=liq.salario_base,
         auxilio_transporte=liq.auxilio_transporte,
         auxilio_movilidad=liq.auxilio_movilidad,

@@ -35,6 +35,12 @@
     select.value = actual;
   }
 
+  function etiquetaPago(quincena) {
+    if (quincena === 1) return "1.ª quincena";
+    if (quincena === 2) return "2.ª quincena";
+    return "Mes completo";
+  }
+
   function bindFiltros() {
     document.getElementById("f-periodo").addEventListener("change", (e) => {
       state.periodo = e.target.value;
@@ -61,7 +67,8 @@
         <div class="kpi-card fade-up">
           <div class="kpi-label">Próximo pago</div>
           <div class="kpi-value" style="font-size:20px;">${resumen.proximo_pago ? formatDate(resumen.proximo_pago) : "—"}</div>
-          <div class="kpi-sub">Fecha estimada de desembolso</div>
+          <div class="kpi-sub">${escapeHtml(resumen.proximo_pago_concepto) || "Fecha estimada de desembolso"}</div>
+          <div class="kpi-sub">${resumen.empleados_mensuales} mensual(es) · ${resumen.empleados_quincenales} quincenal(es)</div>
         </div>
         <div class="kpi-card fade-up">
           <div class="kpi-label">Novedades sin procesar</div>
@@ -79,20 +86,20 @@
 
   async function loadNomina() {
     const tbody = document.getElementById("nomina-tbody");
-    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Cargando nómina…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Cargando nómina…</td></tr>`;
     try {
       const registros = await api.get(`/nomina?periodo=${state.periodo}`);
       renderTable(registros);
     } catch (err) {
       handleApiError(err);
-      tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No se pudo cargar la nómina.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="table-empty">No se pudo cargar la nómina.</td></tr>`;
     }
   }
 
   function renderTable(registros) {
     const tbody = document.getElementById("nomina-tbody");
     if (!registros.length) {
-      tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No hay registros de nómina para este período.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="table-empty">No hay registros de nómina para este período.</td></tr>`;
       return;
     }
     tbody.innerHTML = registros
@@ -103,7 +110,14 @@
           <div class="person-name">${escapeHtml(n.empleado_nombre)}</div>
           ${n.novedades_mes > 0 ? `<span class="person-sub">${n.novedades_mes} novedad(es) este mes</span>` : ""}
         </td>
-        <td>${formatMoney(n.salario_base)}</td>
+        <td>
+          <span class="badge ${n.quincena ? "badge-info" : "badge-neutral"}">${etiquetaPago(n.quincena)}</span>
+          <div class="person-sub">${n.fecha_pago ? formatDate(n.fecha_pago) : "—"} · ${n.dias_liquidados} días</div>
+        </td>
+        <td>
+          ${formatMoney(n.salario_base)}
+          ${n.quincena ? `<div class="person-sub">Devengado ${formatMoney(n.salario_devengado)}</div>` : ""}
+        </td>
         <td>
           ${formatMoney(n.auxilio_transporte + n.auxilio_movilidad)}
           <div class="person-sub">Transporte ${formatMoney(n.auxilio_transporte)} · Movilidad ${formatMoney(n.auxilio_movilidad)}</div>
@@ -158,7 +172,7 @@
               <label>Empleado</label>
               <select name="empleado_id" required>
                 <option value="">Selecciona un empleado</option>
-                ${state.empleados.map((e) => `<option value="${e.id}">${escapeHtml(e.nombre_completo)}</option>`).join("")}
+                ${state.empleados.map((e) => `<option value="${e.id}" data-periodicidad="${e.periodicidad_pago}">${escapeHtml(e.nombre_completo)} — ${e.periodicidad_pago}</option>`).join("")}
               </select>
             </div>
             <div class="field-row">
@@ -169,7 +183,17 @@
               <div class="field">
                 <label>Salario base</label>
                 <input type="number" name="salario_base" min="0" required>
+                <span class="text-faint" style="font-size:11px;">Salario mensual del contrato, aunque el pago sea quincenal</span>
               </div>
+            </div>
+            <div class="field">
+              <label>Período de pago</label>
+              <select name="quincena" id="f-quincena">
+                <option value="">Mes completo (se paga el último día del mes)</option>
+                <option value="1">Primera quincena (se paga el 15)</option>
+                <option value="2">Segunda quincena (se paga el último día del mes)</option>
+              </select>
+              <span class="text-faint" style="font-size:11px;" id="hint-quincena">Se ajusta automáticamente según la periodicidad del empleado.</span>
             </div>
             <div class="field-row">
               <div class="field">
@@ -196,6 +220,21 @@
           </div>
         </form>
       `);
+      const selEmpleado = overlay.querySelector('select[name="empleado_id"]');
+      const selQuincena = overlay.querySelector("#f-quincena");
+      const hintQuincena = overlay.querySelector("#hint-quincena");
+      selEmpleado.addEventListener("change", () => {
+        const opcion = selEmpleado.selectedOptions[0];
+        const periodicidad = opcion ? opcion.dataset.periodicidad : "";
+        if (periodicidad === "Quincenal") {
+          selQuincena.value = "1";
+          hintQuincena.textContent = "Este empleado cobra quincenal: registra una quincena por cada pago.";
+        } else if (periodicidad === "Mensual") {
+          selQuincena.value = "";
+          hintQuincena.textContent = "Este empleado cobra mensual: un solo registro por mes.";
+        }
+      });
+
       overlay.querySelector("#form-nomina").addEventListener("submit", async (ev) => {
         ev.preventDefault();
         const fd = new FormData(ev.target);
@@ -206,6 +245,7 @@
           auxilio_transporte: Number(fd.get("auxilio_transporte") || 0),
           auxilio_movilidad: Number(fd.get("auxilio_movilidad") || 0),
           descuentos: Number(fd.get("descuentos") || 0),
+          quincena: fd.get("quincena") ? Number(fd.get("quincena")) : null,
         };
         try {
           await api.post("/nomina", payload);

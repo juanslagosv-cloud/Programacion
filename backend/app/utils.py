@@ -1,7 +1,13 @@
+import calendar
 from dataclasses import asdict, dataclass
-from datetime import date
+from datetime import date, timedelta
 
-from app.models import Empleado, Novedad, Proyecto, TipoNovedad
+from app.models import Empleado, Novedad, PeriodicidadPago, Proyecto, TipoNovedad
+
+# En nómina el mes siempre se cuenta como 30 días, sin importar los días
+# calendario reales: una quincena son 15 días y un mes completo 30.
+DIAS_MES = 30
+DIAS_QUINCENA = 15
 
 # ---------------------------------------------------------------------------
 # Reglas de nómina — valores y tasas legales vigentes en Colombia para 2026.
@@ -68,12 +74,65 @@ def tasa_arl(empleado: Empleado) -> float:
     return TASA_ARL_RIESGO_V if es_rol_campo(empleado) else TASA_ARL_RIESGO_I
 
 
+def ultimo_dia_del_mes(periodo: str) -> date:
+    """`periodo` viene como 'YYYY-MM'."""
+    anio, mes = (int(x) for x in periodo.split("-"))
+    return date(anio, mes, calendar.monthrange(anio, mes)[1])
+
+
+def fecha_de_pago(periodo: str, quincena: int | None) -> date:
+    """Los pagos mensuales y la segunda quincena caen el último día del mes;
+    la primera quincena, el 15."""
+    anio, mes = (int(x) for x in periodo.split("-"))
+    if quincena == 1:
+        return date(anio, mes, 15)
+    return ultimo_dia_del_mes(periodo)
+
+
+def periodos_de_pago(empleado: Empleado) -> list[int | None]:
+    """Qué pagos le corresponden a una persona dentro de un mes."""
+    if empleado.periodicidad_pago == PeriodicidadPago.quincenal:
+        return [1, 2]
+    return [None]
+
+
+def dias_del_periodo(quincena: int | None) -> int:
+    return DIAS_QUINCENA if quincena is not None else DIAS_MES
+
+
+def proximo_pago(n_mensuales: int, n_quincenales: int, hoy: date | None = None) -> tuple[date, str]:
+    """Devuelve la próxima fecha de pago y a quiénes cubre. El 15 solo se paga
+    a quienes cobran quincenalmente; el último día del mes, a todos."""
+    hoy = hoy or date.today()
+    periodo_actual = hoy.strftime("%Y-%m")
+    quince = date(hoy.year, hoy.month, 15)
+    fin_de_mes = ultimo_dia_del_mes(periodo_actual)
+
+    if hoy <= quince and n_quincenales:
+        return quince, f"Primera quincena · {n_quincenales} persona(s)"
+
+    if hoy <= fin_de_mes:
+        personas = n_mensuales + n_quincenales
+        detalle = "mensuales" if not n_quincenales else "mensuales + segunda quincena"
+        return fin_de_mes, f"Pago de fin de mes ({detalle}) · {personas} persona(s)"
+
+    # ya pasó el fin de mes: el siguiente pago es del mes entrante
+    siguiente_mes = (fin_de_mes.replace(day=1) + timedelta(days=32)).strftime("%Y-%m")
+    if n_quincenales:
+        anio, mes = (int(x) for x in siguiente_mes.split("-"))
+        return date(anio, mes, 15), f"Primera quincena · {n_quincenales} persona(s)"
+    return ultimo_dia_del_mes(siguiente_mes), f"Pago de fin de mes · {n_mensuales} persona(s)"
+
+
 @dataclass
 class LiquidacionNomina:
-    """Liquidación mensual completa: lo que recibe el trabajador y lo que
-    realmente le cuesta a la empresa."""
+    """Liquidación de un pago: lo que recibe el trabajador y lo que realmente
+    le cuesta a la empresa. Todos los valores corresponden al período
+    liquidado, así que sumar las quincenas de un mes da el total mensual."""
 
-    salario_base: float
+    salario_base: float  # salario mensual del contrato (referencia, no se suma)
+    dias_liquidados: int
+    salario_devengado: float  # lo causado en este período
     auxilio_transporte: float
     auxilio_movilidad: float
     # Deducciones al trabajador
@@ -97,14 +156,58 @@ class LiquidacionNomina:
         return asdict(self)
 
 
+def _liquidar_mes(
+    empleado: Empleado,
+    salario_base: float,
+    auxilio_transporte: float,
+    auxilio_movilidad: float,
+    otros_descuentos: float,
+) -> dict:
+    """Liquida el mes completo. Todos los conceptos salen de aquí; las
+    quincenas se derivan partiendo estos valores."""
+    transporte = calcular_auxilio_transporte(salario_base, auxilio_transporte)
+
+    base_prestacional = salario_base + transporte
+    base_seguridad_social = salario_base
+
+    prima = round(base_prestacional * TASA_PRIMA)
+    cesantias = round(base_prestacional * TASA_CESANTIAS)
+    intereses_cesantias = round(base_prestacional * TASA_INTERESES_CESANTIAS)
+
+    return {
+        "salario_devengado": round(salario_base),
+        "auxilio_transporte": transporte,
+        "auxilio_movilidad": auxilio_movilidad,
+        "salud_empleado": round(base_seguridad_social * TASA_SALUD_EMPLEADO),
+        "pension_empleado": round(base_seguridad_social * TASA_PENSION_EMPLEADO),
+        "otros_descuentos": otros_descuentos,
+        "prima": prima,
+        "cesantias": cesantias,
+        "intereses_cesantias": intereses_cesantias,
+        "provision_vacaciones": round(salario_base * TASA_VACACIONES),
+        "pension_empleador": round(base_seguridad_social * TASA_PENSION_EMPLEADOR),
+        "arl": round(base_seguridad_social * tasa_arl(empleado)),
+        "otros_aportes": round(
+            base_seguridad_social
+            * (TASA_SALUD_EMPLEADOR + TASA_CAJA_COMPENSACION + TASA_SENA + TASA_ICBF)
+        ),
+    }
+
+
 def liquidar_nomina(
     empleado: Empleado,
     salario_base: float,
     auxilio_transporte: float = 0,
     auxilio_movilidad: float = 0,
     otros_descuentos: float = 0,
+    quincena: int | None = None,
 ) -> LiquidacionNomina:
-    """Liquida un mes de nómina siguiendo la normativa laboral colombiana.
+    """Liquida un pago de nómina siguiendo la normativa laboral colombiana.
+
+    `salario_base` y los auxilios se reciben siempre como valores mensuales.
+    Si el pago es quincenal, cada concepto se parte en dos y la diferencia por
+    redondeo se ajusta en la segunda quincena, de modo que las dos quincenas
+    sumen exactamente el mes.
 
     Bases de cálculo:
     - El auxilio de transporte SÍ es base para prima, cesantías e intereses,
@@ -112,57 +215,41 @@ def liquidar_nomina(
     - El auxilio de movilidad no es salarial ni prestacional: no entra en
       ninguna base, solo suma al costo de la empresa. Al ser una decisión de
       la empresa, se toma exactamente el valor que se registre.
+    - La elegibilidad del auxilio de transporte y la clase de riesgo de la ARL
+      se evalúan sobre el salario mensual, no sobre el valor de la quincena.
     """
-    transporte = calcular_auxilio_transporte(salario_base, auxilio_transporte)
-    movilidad = auxilio_movilidad
-
-    base_prestacional = salario_base + transporte
-    base_seguridad_social = salario_base
-
-    salud_empleado = round(base_seguridad_social * TASA_SALUD_EMPLEADO)
-    pension_empleado = round(base_seguridad_social * TASA_PENSION_EMPLEADO)
-    total_descuentos = salud_empleado + pension_empleado + otros_descuentos
-
-    prima = round(base_prestacional * TASA_PRIMA)
-    cesantias = round(base_prestacional * TASA_CESANTIAS)
-    intereses_cesantias = round(base_prestacional * TASA_INTERESES_CESANTIAS)
-    provision_vacaciones = round(salario_base * TASA_VACACIONES)
-
-    pension_empleador = round(base_seguridad_social * TASA_PENSION_EMPLEADOR)
-    arl = round(base_seguridad_social * tasa_arl(empleado))
-    otros_aportes = round(
-        base_seguridad_social
-        * (TASA_SALUD_EMPLEADOR + TASA_CAJA_COMPENSACION + TASA_SENA + TASA_ICBF)
+    mes = _liquidar_mes(
+        empleado, salario_base, auxilio_transporte, auxilio_movilidad, otros_descuentos
     )
 
+    if quincena is None:
+        c = mes
+    elif quincena == 1:
+        c = {k: round(v / 2) for k, v in mes.items()}
+    else:
+        # la segunda quincena absorbe el ajuste al peso
+        c = {k: v - round(v / 2) for k, v in mes.items()}
+
+    total_descuentos = c["salud_empleado"] + c["pension_empleado"] + c["otros_descuentos"]
+    devengado = c["salario_devengado"] + c["auxilio_transporte"] + c["auxilio_movilidad"]
     total_prestaciones = (
-        prima
-        + cesantias
-        + intereses_cesantias
-        + provision_vacaciones
-        + pension_empleador
-        + arl
-        + otros_aportes
+        c["prima"]
+        + c["cesantias"]
+        + c["intereses_cesantias"]
+        + c["provision_vacaciones"]
+        + c["pension_empleador"]
+        + c["arl"]
+        + c["otros_aportes"]
     )
 
     return LiquidacionNomina(
         salario_base=salario_base,
-        auxilio_transporte=transporte,
-        auxilio_movilidad=movilidad,
-        salud_empleado=salud_empleado,
-        pension_empleado=pension_empleado,
-        otros_descuentos=otros_descuentos,
+        dias_liquidados=dias_del_periodo(quincena),
+        neto_pagado=devengado - total_descuentos,
         total_descuentos=total_descuentos,
-        neto_pagado=salario_base + transporte + movilidad - total_descuentos,
-        prima=prima,
-        cesantias=cesantias,
-        intereses_cesantias=intereses_cesantias,
-        provision_vacaciones=provision_vacaciones,
-        pension_empleador=pension_empleador,
-        arl=arl,
-        otros_aportes=otros_aportes,
         total_prestaciones=total_prestaciones,
-        costo_empleador=salario_base + transporte + movilidad + total_prestaciones,
+        costo_empleador=devengado + total_prestaciones,
+        **c,
     )
 
 
@@ -181,13 +268,16 @@ def porcentaje_total_empleado(empleado: Empleado) -> float:
 
 
 def costo_prorrateado_empleado(empleado: Empleado) -> float:
-    """Costo mensual real del empleado para la empresa, tomando su última
-    nómina registrada. Incluye salario, auxilios, prestaciones sociales y
-    aportes del empleador — no solo lo que la persona recibe."""
+    """Costo mensual real del empleado para la empresa. Suma todos los pagos
+    del último período liquidado, porque a quien se le paga quincenalmente le
+    corresponden dos registros por mes. Incluye salario, auxilios, prestaciones
+    sociales y aportes del empleador — no solo lo que la persona recibe."""
     if not empleado.nominas:
         return 0.0
-    ultima = max(empleado.nominas, key=lambda n: n.periodo)
-    return float(ultima.costo_empleador)
+    ultimo_periodo = max(n.periodo for n in empleado.nominas)
+    return float(
+        sum(n.costo_empleador for n in empleado.nominas if n.periodo == ultimo_periodo)
+    )
 
 
 def costo_nomina_mes_proyecto(proyecto: Proyecto) -> float:

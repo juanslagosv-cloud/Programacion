@@ -52,6 +52,11 @@ class EstadoEmpleado(str, enum.Enum):
     inactivo = "Inactivo"
 
 
+class PeriodicidadPago(str, enum.Enum):
+    mensual = "Mensual"  # se paga el último día del mes
+    quincenal = "Quincenal"  # se paga el 15 y el último día del mes
+
+
 class EstadoProyecto(str, enum.Enum):
     activo = "Activo"
     cierre = "Cierre"
@@ -101,6 +106,9 @@ class Empleado(Base):
     fecha_ingreso: Mapped[date] = mapped_column(Date)
     estado: Mapped[EstadoEmpleado] = mapped_column(
         Enum(EstadoEmpleado, name="estado_empleado"), default=EstadoEmpleado.activo
+    )
+    periodicidad_pago: Mapped[PeriodicidadPago] = mapped_column(
+        Enum(PeriodicidadPago, name="periodicidad_pago"), default=PeriodicidadPago.mensual
     )
     vacaciones_ultima_toma: Mapped[date | None] = mapped_column(Date, nullable=True)
     vacaciones_dias_pendientes: Mapped[int] = mapped_column(default=0)
@@ -220,8 +228,14 @@ class Nomina(Base):
     empleado_id: Mapped[int] = mapped_column(ForeignKey("empleados.id", ondelete="CASCADE"))
     periodo: Mapped[str] = mapped_column(String(7))  # formato YYYY-MM
 
+    # Período de pago: un registro por pago (mes completo o quincena)
+    quincena: Mapped[int | None] = mapped_column(nullable=True)  # None = mes, 1 = 1-15, 2 = 16-fin
+    fecha_pago: Mapped[date | None] = mapped_column(Date, nullable=True)
+    dias_liquidados: Mapped[int] = mapped_column(default=30)
+
     # Devengado
-    salario_base: Mapped[float] = mapped_column(Numeric(12, 2))
+    salario_base: Mapped[float] = mapped_column(Numeric(12, 2))  # salario mensual del contrato
+    salario_devengado: Mapped[float] = mapped_column(Numeric(12, 2), default=0)  # causado en el período
     auxilio_transporte: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     auxilio_movilidad: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
 
