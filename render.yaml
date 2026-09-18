@@ -1,0 +1,46 @@
+# Despliegue del backend en Render (https://render.com)
+#
+# Cómo usarlo:
+#   1. En Render: New > Blueprint, y conecta este repositorio.
+#   2. Render lee este archivo y crea el servicio web y la base de datos.
+#   3. Cuando termine, siembra los datos de ejemplo UNA sola vez desde
+#      la pestaña "Shell" del servicio:  python -m app.seed
+#      (Ojo: el seed borra y recrea las tablas. No lo corras de nuevo
+#       una vez tengas información real.)
+#   4. Copia la URL del servicio y pégala en frontend/js/config.js.
+
+databases:
+  - name: ecodes-th-db
+    databaseName: ecodes_th
+    user: ecodes
+    plan: free
+
+services:
+  - type: web
+    name: ecodes-th-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /salud
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecodes-th-db
+          property: connectionString
+      # Render genera una clave aleatoria la primera vez y la conserva.
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "480"
+      # Acepta cualquier dominio de Vercel, incluidas las URLs de vista
+      # previa que se crean en cada despliegue del frontend.
+      - key: CORS_ORIGIN_REGEX
+        value: https://.*\.vercel\.app
+      - key: CORS_ORIGINS
+        value: http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080

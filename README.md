@@ -316,13 +316,87 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 9. Despliegue
+## 9. Publicar el sistema (Render + Vercel)
+
+El backend y el frontend se publican por separado, porque son cosas distintas:
+el backend es un servidor que necesita base de datos, y el frontend son
+archivos estáticos.
+
+> **Por qué el backend no va en Vercel.** Vercel ejecuta funciones *serverless*
+> (arrancan y mueren en cada petición) y no incluye PostgreSQL. Este backend es
+> un servidor de larga vida con base de datos, así que va en Render, que tiene
+> ambas cosas en su plan gratuito. Si lo intentas desplegar en Vercel tal cual,
+> falla con `FUNCTION_INVOCATION_FAILED` porque no encuentra la base de datos.
+
+### 9.1. Backend en Render
+
+El archivo `render.yaml` en la raíz ya describe el servicio y la base de datos,
+así que no hay que configurar nada a mano.
+
+1. Entra a [render.com](https://render.com) y crea una cuenta (sirve la de GitHub).
+2. **New > Blueprint** y selecciona este repositorio.
+3. Render lee `render.yaml` y crea dos cosas: el servicio web `ecodes-th-api`
+   y la base de datos PostgreSQL `ecodes-th-db`, ya conectadas entre sí.
+   La `JWT_SECRET_KEY` se genera sola.
+4. Espera a que el despliegue termine (la primera vez tarda unos minutos
+   instalando pandas y las demás dependencias).
+5. **Siembra los datos de ejemplo una sola vez**: abre la pestaña **Shell** del
+   servicio y ejecuta:
+
+   ```bash
+   python -m app.seed
+   ```
+
+   > ⚠️ El seed hace `drop_all()`: **borra todas las tablas** antes de crear los
+   > datos de ejemplo. Córrelo solo la primera vez. Si ya cargaste información
+   > real de Ecodes, volver a ejecutarlo la elimina.
+
+6. Comprueba que quedó bien abriendo `https://TU-SERVICIO.onrender.com/salud`.
+   Debe responder:
+
+   ```json
+   {"status": "ok", "base_datos": "ok"}
+   ```
+
+   Si `base_datos` trae un error, el servicio está vivo pero no alcanza la base:
+   revisa `DATABASE_URL` en la pestaña Environment.
+
+La documentación interactiva de la API queda en `https://TU-SERVICIO.onrender.com/docs`.
+
+### 9.2. Frontend en Vercel
+
+1. Abre `frontend/js/config.js` y pega la URL que te dio Render:
+
+   ```js
+   const API_EN_PRODUCCION = "https://ecodes-th-api.onrender.com";
+   ```
+
+   Guarda y sube el cambio a GitHub.
+2. En [vercel.com](https://vercel.com): **Add New > Project**, elige este
+   repositorio y —esto es lo importante— en **Root Directory** selecciona la
+   carpeta **`frontend`**, no la raíz del repositorio.
+3. Framework Preset: **Other**. No hay que poner comandos de build.
+4. Deploy.
+
+El `CORS` ya está resuelto: `render.yaml` define
+`CORS_ORIGIN_REGEX=https://.*\.vercel\.app`, que acepta tanto el dominio
+definitivo como las URLs de vista previa que Vercel genera en cada despliegue.
+Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
+
+### 9.3. Cosas que conviene saber del plan gratuito
+
+| | |
+|---|---|
+| **El backend se duerme** | Render apaga los servicios gratuitos tras 15 minutos sin uso. La primera petición después de eso tarda **30–60 segundos** en responder mientras vuelve a arrancar. No está dañado; es el plan gratis. Si vas a mostrar el sistema en una sustentación, ábrelo unos minutos antes. |
+| **La base de datos caduca** | Las bases PostgreSQL gratuitas de Render expiran a los 30 días. Para un proyecto de tesis alcanza, pero anótalo. |
+| **Las contraseñas del seed son públicas** | `th / th12345` y `admin / admin12345` están en el repositorio. Sirven para la demo; si el sistema llegara a manejar datos reales de empleados, cámbialas antes. |
+
+### 9.4. Otras opciones
 
 - **Backend**: cualquier host compatible con ASGI (Uvicorn/Gunicorn) —
-  Railway, Render, Fly.io, un VPS con Docker, etc. Recuerda configurar
-  `DATABASE_URL` apuntando a la instancia de PostgreSQL productiva y una
-  `JWT_SECRET_KEY` robusta.
-- **Frontend**: al ser archivos estáticos, se puede publicar en Netlify,
-  Vercel, S3 + CloudFront, GitHub Pages o el mismo servidor del backend detrás
-  de un proxy. Solo asegúrate de definir `window.ECODES_API_BASE` con la URL
-  pública de la API y de incluir el dominio del frontend en `CORS_ORIGINS`.
+  Railway, Fly.io, un VPS con Docker, etc. Solo hay que configurar
+  `DATABASE_URL` apuntando a PostgreSQL y una `JWT_SECRET_KEY` robusta.
+- **Frontend**: al ser archivos estáticos, también funciona en Netlify,
+  GitHub Pages, S3 + CloudFront o detrás del mismo proxy del backend. En
+  cualquier caso, define la URL de la API en `frontend/js/config.js` e incluye
+  el dominio del frontend en `CORS_ORIGINS`.
