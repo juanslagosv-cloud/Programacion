@@ -1,0 +1,60 @@
+# Instalación del sistema en el servidor local de Ecodes.
+#
+#   docker compose up -d      ->  levanta la base de datos y la aplicación
+#   docker compose down       ->  la apaga (los datos se conservan)
+#   docker compose logs -f app->  ver qué está pasando
+#
+# Desde cualquier computador de la oficina se entra a:
+#   http://IP-DEL-SERVIDOR:8000
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ecodes_th_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ecodes
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecodes}
+      POSTGRES_DB: ecodes_th
+    # Sin "ports" a propósito: la base solo es visible para la aplicación,
+    # no para toda la red de la oficina. Para conectarse con pgAdmin desde
+    # otro equipo, descomenta las dos líneas siguientes.
+    # ports:
+    #   - "5432:5432"
+    volumes:
+      - ecodes_th_pgdata:/var/lib/postgresql/data
+      # Los respaldos caen en una carpeta normal, visible desde Windows.
+      - ./respaldos:/respaldos
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecodes -d ecodes_th"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: ecodes_th_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://ecodes:${POSTGRES_PASSWORD:-ecodes}@db:5432/ecodes_th
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-cambia-esta-clave-por-una-secreta-y-larga}
+      # Las pantallas las sirve este mismo servicio, así que no hace falta CORS.
+      CORS_ORIGINS: ""
+      EMPRESA_NOMBRE: ${EMPRESA_NOMBRE:-ECODES INGENIERÍA S.A.S.}
+      EMPRESA_NIT: ${EMPRESA_NIT:-[NIT POR CONFIGURAR]}
+      EMPRESA_CIUDAD: ${EMPRESA_CIUDAD:-Bogotá D.C.}
+      FIRMANTE_NOMBRE: ${FIRMANTE_NOMBRE:-[NOMBRE DE QUIEN FIRMA]}
+      FIRMANTE_CARGO: ${FIRMANTE_CARGO:-Directora de Talento Humano}
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "python -m app.seed --solo-si-vacia &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  ecodes_th_pgdata:
