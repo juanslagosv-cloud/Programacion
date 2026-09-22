@@ -358,7 +358,105 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 10. Publicar el sistema (Render + Vercel)
+## 10. Instalación en el servidor de Ecodes (recomendada)
+
+Esta es la forma en que el sistema queda funcionando **dentro de la empresa**:
+en el servidor local, sin nube, y accesible desde los computadores de la
+oficina por el navegador. Los datos de los empleados nunca salen de Ecodes.
+
+### 10.1. Cómo queda montado
+
+```
+    Servidor de la oficina                    Computadores del equipo
+  ┌────────────────────────────┐
+  │  PostgreSQL  (los datos)   │            Talento Humano  ─┐
+  │  Aplicación  (puerto 8000) │ ←── red ── Administración  ─┼→ el navegador
+  │  Carpeta "respaldos"       │            Gerencia        ─┘
+  └────────────────────────────┘
+```
+
+Un solo programa sirve la API **y** las pantallas, así que no hay nada que
+instalar en los computadores del equipo: entran a
+`http://IP-DEL-SERVIDOR:8000` desde Chrome o Edge y listo.
+
+### 10.2. Instalación
+
+En el servidor hace falta **Docker Desktop** (Windows) o **Docker Engine**
+(Linux). Es lo único que se instala a mano.
+
+1. Copia la carpeta del proyecto al servidor.
+2. Duplica `.env.servidor.example` y renómbralo como `.env`. Ábrelo con el
+   Bloc de notas y llénalo: contraseña de la base, clave de sesiones, NIT de
+   la empresa y nombre de quien firma los certificados.
+3. Abre una terminal en esa carpeta y ejecuta:
+
+   ```bash
+   docker compose up -d
+   ```
+
+   La primera vez tarda unos minutos. Levanta la base de datos, crea las
+   tablas y carga los datos de ejemplo.
+4. Averigua la IP del servidor (`ipconfig` en Windows, `ip a` en Linux) y
+   entra desde otro computador a `http://ESA-IP:8000`.
+
+Para que arranque solo cuando se prenda el servidor no hay que hacer nada
+más: `restart: unless-stopped` en `docker-compose.yml` se encarga.
+
+| Qué necesitas | Comando |
+|---------------|---------|
+| Apagar el sistema | `docker compose down` (los datos se conservan) |
+| Volver a encenderlo | `docker compose up -d` |
+| Ver si está funcionando | `docker compose ps` |
+| Ver qué está pasando | `docker compose logs -f app` |
+| Actualizar a una versión nueva | `docker compose up -d --build` |
+
+### 10.3. Respaldos
+
+Los datos viven dentro de Docker, no en una carpeta suelta, así que
+copiar archivos no alcanza: hay que generar el respaldo.
+
+- **Windows**: doble clic en `respaldar.bat`
+- **Linux**: `./respaldar.sh`
+
+Cada respaldo queda como un archivo `.sql` con la fecha en el nombre, dentro
+de la carpeta **`respaldos`**. Esa carpeta sí se puede copiar como cualquier
+otra, al mismo sitio donde la empresa guarda sus respaldos.
+
+**Para que corra solo todos los días** (Windows): Programador de tareas →
+Crear tarea básica → Diariamente → apuntar a `respaldar.bat`.
+
+Para volver atrás: `./restaurar.sh respaldos/ecodes_th_2026-09-22_1900.sql`.
+Ojo, reemplaza **todo** lo que haya en la base.
+
+> **Prueba el respaldo antes de confiar en él.** Un respaldo que nunca se
+> restauró no es un respaldo. Haz uno, restáuralo y verifica que los datos
+> estén completos.
+
+### 10.4. Seguridad en la red de la empresa
+
+- **El sistema no va expuesto a internet.** Solo debe verse dentro de la red
+  de la oficina. Si alguien necesita entrar desde afuera, que sea por la VPN
+  de la empresa, no abriendo el puerto 8000 en el router.
+- **Cambia las contraseñas de ejemplo.** Los usuarios `th` y `admin` del seed
+  son públicos porque están en este repositorio. Antes de cargar datos reales,
+  cámbialas.
+- **La base no se expone a la red.** En `docker-compose.yml` el servicio de
+  PostgreSQL no publica el puerto 5432 a propósito: solo la aplicación la ve.
+- **Datos personales.** El sistema guarda nombres, documentos, fechas de
+  nacimiento y salarios de personas reales. En Colombia eso lo cubre la Ley
+  1581 de 2012: conviene tener la autorización de tratamiento de datos de cada
+  empleado y restringir quién entra al servidor.
+
+---
+
+## 11. Publicar el sistema en internet (Render + Vercel)
+
+> Esto es para **mostrar el sistema por fuera de la empresa** — la
+> sustentación de la tesis, por ejemplo. Para el uso real de Ecodes sirve la
+> instalación en el servidor local de la sección 10, que además evita que los
+> datos de los empleados salgan de la empresa.
+
+
 
 El backend y el frontend se publican por separado, porque son cosas distintas:
 el backend es un servidor que necesita base de datos, y el frontend son
@@ -370,7 +468,7 @@ archivos estáticos.
 > ambas cosas en su plan gratuito. Si lo intentas desplegar en Vercel tal cual,
 > falla con `FUNCTION_INVOCATION_FAILED` porque no encuentra la base de datos.
 
-### 10.1. Backend en Render
+### 11.1. Backend en Render
 
 El archivo `render.yaml` en la raíz ya describe el servicio y la base de datos,
 así que no hay que configurar nada a mano.
@@ -413,7 +511,7 @@ así que no hay que configurar nada a mano.
 
 La documentación interactiva de la API queda en `https://TU-SERVICIO.onrender.com/docs`.
 
-### 10.2. Frontend en Vercel
+### 11.2. Frontend en Vercel
 
 1. Abre `frontend/js/config.js` y pega la URL que te dio Render:
 
@@ -448,7 +546,7 @@ El `CORS` ya está resuelto: `render.yaml` define
 definitivo como las URLs de vista previa que Vercel genera en cada despliegue.
 Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 
-### 10.3. Cosas que conviene saber del plan gratuito
+### 11.3. Cosas que conviene saber del plan gratuito
 
 | | |
 |---|---|
@@ -456,7 +554,7 @@ Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 | **La base de datos caduca** | Las bases PostgreSQL gratuitas de Render expiran a los 30 días. Para un proyecto de tesis alcanza, pero anótalo. |
 | **Las contraseñas del seed son públicas** | `th / th12345` y `admin / admin12345` están en el repositorio. Sirven para la demo; si el sistema llegara a manejar datos reales de empleados, cámbialas antes. |
 
-### 10.4. Otras opciones
+### 11.4. Otras opciones
 
 - **Backend**: cualquier host compatible con ASGI (Uvicorn/Gunicorn) —
   Railway, Fly.io, un VPS con Docker, etc. Solo hay que configurar

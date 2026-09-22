@@ -6,3 +6,6 @@ venv/
 .env
 .DS_Store
 node_modules/
+
+# Respaldos de la base de datos: no van al repositorio
+respaldos/*.sql

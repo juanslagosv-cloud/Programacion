@@ -1,21 +1,33 @@
 /* Configuración de entorno — Ecodes Talento Humano
  *
- * Este es el ÚNICO archivo que hay que tocar para conectar el frontend
- * publicado con el backend publicado.
+ * Normalmente NO hay que tocar este archivo.
  *
- * Después de desplegar el backend en Render, copia la URL que te da
- * (algo como https://ecodes-th-api.onrender.com) y pégala abajo en
- * API_EN_PRODUCCION. No pongas una barra "/" al final.
+ * El sistema se conecta solo a la API en los dos casos habituales:
+ *
+ *   1. Instalación en el servidor local de la empresa: el mismo programa
+ *      sirve las pantallas y la API, así que se usan rutas relativas y
+ *      funciona igual desde cualquier computador de la oficina.
+ *   2. Desarrollo, abriendo el frontend con Live Server o
+ *      "python -m http.server": la API se busca en el puerto 8000.
+ *
+ * Solo hay que llenar API_EN_PRODUCCION en el tercer caso: cuando las
+ * pantallas y la API viven en dominios distintos (por ejemplo, frontend en
+ * Vercel y backend en Render). Sin barra "/" al final.
  */
 
-const API_EN_PRODUCCION = "https://ecodes-th-api.onrender.com";
+const API_EN_PRODUCCION = "";
+
+// Puertos típicos de un servidor estático de desarrollo.
+const PUERTOS_DE_DESARROLLO = ["5500", "5501", "8080", "8096", "8098", "3000"];
 
 window.ECODES_API_BASE = (function () {
-  const host = window.location.hostname;
-  // Trabajando en tu computador: el backend corre en el puerto 8000.
-  if (host === "localhost" || host === "127.0.0.1" || host === "") {
+  if (API_EN_PRODUCCION) return API_EN_PRODUCCION;
+
+  const puerto = window.location.port;
+  if (window.location.protocol === "file:" || PUERTOS_DE_DESARROLLO.includes(puerto)) {
     return "http://localhost:8000";
   }
-  // Publicado (Vercel u otro hosting): el backend vive en otro dominio.
-  return API_EN_PRODUCCION;
+
+  // Mismo servidor que entregó esta página: rutas relativas.
+  return "";
 })();

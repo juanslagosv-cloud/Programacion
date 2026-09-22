@@ -1,6 +1,12 @@
 /* Cliente API — Ecodes Talento Humano */
 
-const API_BASE = window.ECODES_API_BASE || "http://localhost:8000";
+// Ojo con el "||": la cadena vacía es un valor VÁLIDO y significa "la API
+// está en el mismo servidor que sirvió esta página", así que hay que
+// distinguirla de "no configurado".
+const API_BASE =
+  typeof window.ECODES_API_BASE === "string"
+    ? window.ECODES_API_BASE
+    : "http://localhost:8000";
 
 class ApiError extends Error {
   constructor(status, detail) {

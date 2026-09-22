@@ -1,8 +1,10 @@
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI
 from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import Base, engine
@@ -49,7 +51,7 @@ app.include_router(alertas.router)
 app.include_router(exportar.router)
 
 
-@app.get("/", tags=["Estado"])
+@app.get("/api", tags=["Estado"])
 def raiz():
     return {"servicio": "Ecodes Talento Humano API", "estado": "operativo"}
 
@@ -64,3 +66,22 @@ def salud():
     except Exception as exc:  # noqa: BLE001 - se reporta el motivo al operador
         base_datos = f"error: {exc.__class__.__name__}"
     return {"status": "ok", "base_datos": base_datos}
+
+
+# ---------------------------------------------------------------------------
+# Servir el frontend desde el mismo servidor.
+#
+# En una instalación local esto es lo que hace que todo sea una sola cosa:
+# se levanta un único programa, los computadores de la oficina entran a
+# http://IP-DEL-SERVIDOR:8000 y ya. Al compartir origen con la API tampoco
+# hay que configurar CORS.
+#
+# Va al final a propósito: las rutas de la API se registran primero y tienen
+# prioridad sobre estos archivos.
+# ---------------------------------------------------------------------------
+FRONTEND = Path(__file__).resolve().parent.parent.parent / "frontend"
+
+if FRONTEND.is_dir():
+    app.mount("/", StaticFiles(directory=str(FRONTEND), html=True), name="frontend")
+else:
+    logger.warning("No se encontró la carpeta frontend en %s: solo se sirve la API", FRONTEND)
