@@ -3,7 +3,8 @@
 Sistema web de gestión de Talento Humano para **Ecodes**, empresa de consultoría y
 gestión ambiental con operación en Colombia, Perú y Argentina (restauración
 ecológica, compensación forestal, monitoreo de biodiversidad y gestión ambiental
-corporativa).
+corporativa). El mismo sistema atiende también a **Envsol**, la otra empresa
+del grupo: es una sola instalación para las dos (ver sección 2).
 
 El sistema **no construye dashboards ni gráficos**: administra la información
 operativa (empleados, proyectos, participaciones, novedades y nómina) y permite
@@ -21,7 +22,7 @@ Programacion/
 │   │   ├── main.py          # Punto de entrada de la app FastAPI
 │   │   ├── config.py        # Variables de entorno (pydantic-settings)
 │   │   ├── database.py      # Motor SQLAlchemy y sesión
-│   │   ├── models.py        # Modelos ORM (Empleado, Proyecto, Participación...)
+│   │   ├── models.py        # Modelos ORM (Empresa, Empleado, Proyecto, Participación...)
 │   │   ├── schemas.py       # Esquemas Pydantic (entrada/salida)
 │   │   ├── security.py      # Hash de contraseñas y JWT
 │   │   ├── deps.py          # Dependencias de autenticación y autorización
@@ -48,7 +49,44 @@ Programacion/
 
 ---
 
-## 2. Requisitos
+## 2. Varias empresas en un mismo sistema
+
+Ecodes y Envsol comparten esta misma instalación: un solo servidor, una sola
+base de datos, un solo sitio al que entra todo el equipo. Lo que cambia por
+empresa es un solo dato — a cuál pertenece cada empleado y cada proyecto —,
+no el sistema completo.
+
+- **Cada empleado y cada proyecto tiene una empresa asignada.** Se elige en
+  su formulario, en un campo obligatorio.
+- **El filtro "Todas las empresas"** en Empleados y Proyectos deja ver todo
+  junto o separar por empresa, según haga falta.
+- **El certificado laboral usa los datos de la empresa del empleado**, no
+  una configuración fija: el de alguien de Envsol sale con el NIT y la firma
+  de Envsol, no con los de Ecodes.
+- **Las empresas se administran desde la propia aplicación**, en
+  Empleados → **Empresas** (arriba de la tabla). Ahí se agregan, editan o
+  desactivan, sin tocar el servidor ni ninguna variable de entorno. Solo el
+  rol Talento Humano puede crear o editar; el rol Administrativo puede
+  verlas.
+- **Cada participación, cada proyecto, cada registro de nómina** sigue
+  perteneciendo a una sola persona o a un solo proyecto — la empresa no
+  cambia esas reglas, solo agrupa. Una persona de Envsol puede trabajar en
+  un proyecto de Ecodes si así se le asigna: el sistema no lo impide, porque
+  en la práctica el equipo sí colabora entre las dos empresas.
+
+**Logo por empresa en el certificado.** El sistema busca un archivo
+`backend/app/assets/logo_<nombre-en-minusculas-y-guiones-bajos>.jpg` (por
+ejemplo, para "Envsol S.A.S." sería `logo_envsol_s_a_s.jpg`); si no lo
+encuentra, usa el logo de Ecodes como respaldo. No hay que escribir código
+para agregarlo: basta con dejar el archivo en esa carpeta.
+
+**Para la hoja de indicadores en Power BI**: el Excel exportado (`Exportar a
+Excel` en cualquier pantalla) trae una hoja `empresas` y una columna
+`empresa_id` / `empresa_nombre` en `empleados` y en `proyectos`, así que los
+tres indicadores (rotación, costos laborales, ausentismo) se pueden filtrar
+o agrupar por empresa sin tocar nada más.
+
+## 3. Requisitos
 
 - Python 3.11+
 - Docker y Docker Compose (para PostgreSQL local) — o una instancia de PostgreSQL existente
@@ -56,9 +94,9 @@ Programacion/
 
 ---
 
-## 3. Puesta en marcha — Backend
+## 4. Puesta en marcha — Backend
 
-### 3.1. Levantar PostgreSQL
+### 4.1. Levantar PostgreSQL
 
 ```bash
 docker compose up -d
@@ -67,7 +105,7 @@ docker compose up -d
 Esto crea una base de datos `ecodes_th` en `localhost:5432` con usuario/clave
 `ecodes` / `ecodes` (ver `docker-compose.yml`).
 
-### 3.2. Configurar variables de entorno
+### 4.2. Configurar variables de entorno
 
 ```bash
 cp .env.example backend/.env
@@ -84,7 +122,7 @@ usar una clave JWT propia. Variables disponibles:
 | `ACCESS_TOKEN_EXPIRE_MINUTES`   | Minutos de validez del token (por defecto 480 = 8h)        |
 | `CORS_ORIGINS`                  | Orígenes permitidos, separados por coma                    |
 
-### 3.3. Instalar dependencias y crear el entorno virtual
+### 4.3. Instalar dependencias y crear el entorno virtual
 
 ```bash
 cd backend
@@ -93,7 +131,7 @@ source .venv/bin/activate        # En Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3.4. Poblar la base de datos con datos de ejemplo
+### 4.4. Poblar la base de datos con datos de ejemplo
 
 Las tablas se crean automáticamente al iniciar la app, pero para tener datos de
 demo (empleados, proyectos, participaciones, novedades y nómina de ejemplo):
@@ -110,7 +148,7 @@ Esto crea dos usuarios de prueba:
 > El script de seed **borra y vuelve a crear todas las tablas** (`drop_all` +
 > `create_all`) — solo debe usarse en ambientes de desarrollo/demo.
 
-### 3.5. Iniciar la API
+### 4.5. Iniciar la API
 
 ```bash
 uvicorn app.main:app --reload --port 8000
@@ -121,7 +159,7 @@ interactiva (Swagger) en `http://localhost:8000/docs`.
 
 ---
 
-## 4. Puesta en marcha — Frontend
+## 5. Puesta en marcha — Frontend
 
 El frontend es HTML/CSS/JS puro, sin dependencias ni build step. Solo necesita
 servirse como archivos estáticos (no se puede abrir con `file://` porque el
@@ -146,7 +184,7 @@ para que el navegador pueda llamar a la API.
 
 ---
 
-## 5. Flujo de uso
+## 6. Flujo de uso
 
 1. Inicia sesión en `index.html` seleccionando el rol (Talento Humano o
    Administrativo) e ingresando usuario/contraseña.
@@ -176,13 +214,13 @@ para que el navegador pueda llamar a la API.
 
 ---
 
-## 6. Reglas de liquidación de nómina
+## 7. Reglas de liquidación de nómina
 
 Todas las tasas y valores viven en un solo lugar (`backend/app/utils.py`,
 función `liquidar_nomina`) y los usan tanto el endpoint de nómina como el
 script de seed, así que nunca se desincronizan.
 
-### 6.1. Devengado
+### 7.1. Devengado
 
 | Concepto | Valor 2026 | Regla |
 |----------|-----------:|-------|
@@ -191,7 +229,7 @@ script de seed, así que nunca se desincronizan.
 | **Auxilio de transporte** | **$249.095** | Obligatorio por ley **solo** para quien devengue hasta 2 SMLMV. No depende del tipo de cargo. Si se deja en `0` al registrar la nómina, el sistema lo aplica automáticamente. |
 | **Auxilio de movilidad** | lo define Ecodes | Auxilio interno para roles de campo. **No es salarial ni prestacional**: no entra en ninguna base, solo suma al costo. Al ser una decisión de la empresa, **se registra persona a persona** y el sistema nunca lo calcula ni lo asume. |
 
-### 6.2. Deducciones al trabajador
+### 7.2. Deducciones al trabajador
 
 | Concepto | Tasa | Base |
 |----------|-----:|------|
@@ -201,7 +239,7 @@ script de seed, así que nunca se desincronizan.
 El campo `descuentos` queda libre para descuentos adicionales (préstamos,
 embargos, etc.); salud y pensión se calculan aparte.
 
-### 6.3. Costo adicional que asume el empleador
+### 7.3. Costo adicional que asume el empleador
 
 | Concepto | Tasa mensual | Base | Equivalente anual |
 |----------|-------------:|------|-------------------|
@@ -226,7 +264,7 @@ embargos, etc.); salud y pensión se calculan aparte.
 >    exonerada, basta con poner las tasas reales en esas constantes y el cálculo
 >    las incluye automáticamente.
 
-### 6.4. Periodicidad de pago: mensual y quincenal
+### 7.4. Periodicidad de pago: mensual y quincenal
 
 No todo el mundo cobra el mismo día. Cada empleado tiene un campo
 `periodicidad_pago`:
@@ -258,7 +296,7 @@ para poder analizar el flujo de caja por fecha de desembolso en Power BI.
 > se suman sus registros, de modo que un empleado quincenal aporta sus dos
 > quincenas y no se subestima su costo.
 
-### 6.5. Por qué importa para los indicadores
+### 7.5. Por qué importa para los indicadores
 
 El **costo por proyecto se prorratea sobre el costo real del empleador**, no
 sobre el salario: una persona cuesta entre 1,34× y 1,62× su salario según su
@@ -276,7 +314,7 @@ La hoja `nomina` del Excel exporta el desglose completo (`salud_empleado`,
 
 ---
 
-## 7. Certificado laboral en PDF
+## 8. Certificado laboral en PDF
 
 Desde la ficha de cada empleado (panel lateral, sección **Documentos**) se
 genera un certificado laboral en PDF con el logo de Ecodes, listo para firmar
@@ -291,7 +329,7 @@ fecha de ingreso. Si la persona ya no está activa, el texto pasa a tiempo
 pasado y agrega la fecha de retiro, que se toma de la novedad de tipo
 **Salida**. Lo pueden emitir los dos roles: es una consulta, no modifica nada.
 
-### 7.1. Datos de la empresa y de quien firma
+### 8.1. Datos de la empresa y de quien firma
 
 El sistema **no se inventa** el NIT ni el nombre de quien firma. Esos datos se
 configuran por variables de entorno (en Render, pestaña *Environment*; en
@@ -309,7 +347,7 @@ local, el archivo `.env`):
 Mientras no se configuren, el PDF sale con textos como `[NIT POR CONFIGURAR]`
 bien visibles, para que nadie lo entregue a medio llenar.
 
-### 7.2. Si pides el certificado con salario y no hay nómina
+### 8.2. Si pides el certificado con salario y no hay nómina
 
 El sistema responde con un mensaje explicando que esa persona no tiene nómina
 registrada, en vez de emitir un certificado que no dice nada del salario.
@@ -317,11 +355,12 @@ Registra la nómina del período o genera el certificado sin salario.
 
 ---
 
-## 8. Endpoints principales
+## 9. Endpoints principales
 
 | Método | Ruta                                          | Descripción                                   |
 |--------|------------------------------------------------|------------------------------------------------|
 | POST   | `/auth/login`                                  | Autenticación (usuario, contraseña, rol) → JWT |
+| GET/POST/PUT/DELETE | `/empresas[/{id}]`                | CRUD de empresas (Ecodes, Envsol, etc.)        |
 | GET/POST/PUT/DELETE | `/empleados[/{id}]`               | CRUD de empleados                              |
 | POST/DELETE | `/empleados/{id}/estudios[/{id}]`          | Formación académica                            |
 | POST/DELETE | `/empleados/{id}/experiencia[/{id}]`       | Experiencia laboral                            |
@@ -340,7 +379,7 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 9. Notas de diseño
+## 10. Notas de diseño
 
 - Paleta derivada del logo de Ecodes: verde hoja y azul acento sobre fondo
   blanco dominante, con soporte completo de modo oscuro (variables CSS para
@@ -358,13 +397,13 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 10. Instalación en el servidor de Ecodes (recomendada)
+## 11. Instalación en el servidor de Ecodes (recomendada)
 
 Esta es la forma en que el sistema queda funcionando **dentro de la empresa**:
 en el servidor local, sin nube, y accesible desde los computadores de la
 oficina por el navegador. Los datos de los empleados nunca salen de Ecodes.
 
-### 10.1. Cómo queda montado
+### 11.1. Cómo queda montado
 
 ```
     Servidor de la oficina                    Computadores del equipo
@@ -379,7 +418,7 @@ Un solo programa sirve la API **y** las pantallas, así que no hay nada que
 instalar en los computadores del equipo: entran a
 `http://IP-DEL-SERVIDOR:8000` desde Chrome o Edge y listo.
 
-### 10.2. Instalación
+### 11.2. Instalación
 
 En el servidor hace falta **Docker Desktop** (Windows) o **Docker Engine**
 (Linux). Es lo único que se instala a mano.
@@ -410,7 +449,7 @@ más: `restart: unless-stopped` en `docker-compose.yml` se encarga.
 | Ver qué está pasando | `docker compose logs -f app` |
 | Actualizar a una versión nueva | `docker compose up -d --build` |
 
-### 10.3. Respaldos
+### 11.3. Respaldos
 
 Los datos viven dentro de Docker, no en una carpeta suelta, así que
 copiar archivos no alcanza: hay que generar el respaldo.
@@ -432,7 +471,7 @@ Ojo, reemplaza **todo** lo que haya en la base.
 > restauró no es un respaldo. Haz uno, restáuralo y verifica que los datos
 > estén completos.
 
-### 10.4. Seguridad en la red de la empresa
+### 11.4. Seguridad en la red de la empresa
 
 - **El sistema no va expuesto a internet.** Solo debe verse dentro de la red
   de la oficina. Si alguien necesita entrar desde afuera, que sea por la VPN
@@ -449,7 +488,7 @@ Ojo, reemplaza **todo** lo que haya en la base.
 
 ---
 
-## 11. Publicar el sistema en internet (Render + Vercel)
+## 12. Publicar el sistema en internet (Render + Vercel)
 
 > Esto es para **mostrar el sistema por fuera de la empresa** — la
 > sustentación de la tesis, por ejemplo. Para el uso real de Ecodes sirve la
@@ -468,7 +507,7 @@ archivos estáticos.
 > ambas cosas en su plan gratuito. Si lo intentas desplegar en Vercel tal cual,
 > falla con `FUNCTION_INVOCATION_FAILED` porque no encuentra la base de datos.
 
-### 11.1. Backend en Render
+### 12.1. Backend en Render
 
 El archivo `render.yaml` en la raíz ya describe el servicio y la base de datos,
 así que no hay que configurar nada a mano.
@@ -511,7 +550,7 @@ así que no hay que configurar nada a mano.
 
 La documentación interactiva de la API queda en `https://TU-SERVICIO.onrender.com/docs`.
 
-### 11.2. Frontend en Vercel
+### 12.2. Frontend en Vercel
 
 1. Abre `frontend/js/config.js` y pega la URL que te dio Render:
 
@@ -546,7 +585,7 @@ El `CORS` ya está resuelto: `render.yaml` define
 definitivo como las URLs de vista previa que Vercel genera en cada despliegue.
 Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 
-### 11.3. Cosas que conviene saber del plan gratuito
+### 12.3. Cosas que conviene saber del plan gratuito
 
 | | |
 |---|---|
@@ -554,7 +593,7 @@ Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 | **La base de datos caduca** | Las bases PostgreSQL gratuitas de Render expiran a los 30 días. Para un proyecto de tesis alcanza, pero anótalo. |
 | **Las contraseñas del seed son públicas** | `th / th12345` y `admin / admin12345` están en el repositorio. Sirven para la demo; si el sistema llegara a manejar datos reales de empleados, cámbialas antes. |
 
-### 11.4. Otras opciones
+### 12.4. Otras opciones
 
 - **Backend**: cualquier host compatible con ASGI (Uvicorn/Gunicorn) —
   Railway, Fly.io, un VPS con Docker, etc. Solo hay que configurar

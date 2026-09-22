@@ -1,20 +1,35 @@
 (() => {
-  const state = { empleados: [], proyectos: [], filtros: {} };
+  const state = { empleados: [], proyectos: [], empresas: [], filtros: {} };
 
   async function init() {
     renderShell("empleados.html", "Empleados");
 
     try {
-      state.proyectos = await api.get("/proyectos");
+      [state.proyectos, state.empresas] = await Promise.all([
+        api.get("/proyectos"),
+        api.get("/empresas"),
+      ]);
     } catch (err) {
       handleApiError(err);
     }
     fillProyectoFilter();
+    fillEmpresaFilter();
 
     loadBirthdays();
     loadEmpleados();
     bindFilters();
     bindNuevoEmpleado();
+    bindGestionEmpresas();
+  }
+
+  function fillEmpresaFilter() {
+    const select = document.getElementById("f-empresa");
+    state.empresas.forEach((emp) => {
+      const opt = document.createElement("option");
+      opt.value = emp.id;
+      opt.textContent = emp.nombre;
+      select.appendChild(opt);
+    });
   }
 
   function fillProyectoFilter() {
@@ -37,6 +52,10 @@
     );
     document.getElementById("f-estado").addEventListener("change", (e) => {
       state.filtros.estado = e.target.value;
+      loadEmpleados();
+    });
+    document.getElementById("f-empresa").addEventListener("change", (e) => {
+      state.filtros.empresa_id = e.target.value;
       loadEmpleados();
     });
     document.getElementById("f-proyecto").addEventListener("change", (e) => {
@@ -121,6 +140,9 @@
             <div>
               <div class="person-name">${escapeHtml(e.nombre_completo)}</div>
               <div class="person-sub">${escapeHtml(e.nombre_cargo)}</div>
+              ${e.empresa_nombre
+                ? `<span class="badge badge-info" style="margin-top:4px;">${escapeHtml(e.empresa_nombre)}</span>`
+                : `<span class="badge badge-danger" style="margin-top:4px;">Sin empresa asignada</span>`}
             </div>
           </div>
         </td>
@@ -196,6 +218,7 @@
             <button class="btn btn-secondary btn-sm write-only" id="btn-editar-empleado">Editar</button>
           </div>
           <div class="info-grid">
+            <div class="info-item"><div class="label">Empresa</div><div class="value">${escapeHtml(e.empresa_nombre) || "Sin asignar"}</div></div>
             <div class="info-item"><div class="label">Documento</div><div class="value">${e.tipo_documento} ${escapeHtml(e.numero_documento) || "—"}</div></div>
             <div class="info-item"><div class="label">Género</div><div class="value">${e.genero}</div></div>
             <div class="info-item"><div class="label">Fecha de nacimiento</div><div class="value">${formatDate(e.fecha_nacimiento)}</div></div>
@@ -515,7 +538,18 @@
     const periodicidad = e.periodicidad_pago || "Mensual";
     const tipoDoc = e.tipo_documento || "CC";
     const estado = e.estado || "Activo";
+    const empresaId = e.empresa_id ?? "";
     return `
+      <div class="field">
+        <label>Empresa</label>
+        <select name="empresa_id" required>
+          <option value="" disabled ${empresaId === "" ? "selected" : ""}>Selecciona una empresa</option>
+          ${state.empresas
+            .map((emp) => `<option value="${emp.id}" ${String(emp.id) === String(empresaId) ? "selected" : ""}>${escapeHtml(emp.nombre)}</option>`)
+            .join("")}
+        </select>
+        <span class="text-faint" style="font-size:11px;">De qué empresa depende esta persona (Ecodes, Envsol, u otra registrada)</span>
+      </div>
       <div class="field-row">
         <div class="field">
           <label>Tipo de documento</label>
@@ -626,6 +660,7 @@
         const payload = Object.fromEntries(fd.entries());
         payload.vacaciones_dias_pendientes = Number(payload.vacaciones_dias_pendientes || 0);
       payload.numero_documento = (payload.numero_documento || "").trim() || null;
+        payload.empresa_id = payload.empresa_id ? Number(payload.empresa_id) : null;
         if (!payload.vacaciones_ultima_toma) delete payload.vacaciones_ultima_toma;
         try {
           await api.post("/empleados", payload);
@@ -661,6 +696,7 @@
       const payload = Object.fromEntries(fd.entries());
       payload.vacaciones_dias_pendientes = Number(payload.vacaciones_dias_pendientes || 0);
       payload.numero_documento = (payload.numero_documento || "").trim() || null;
+      payload.empresa_id = payload.empresa_id ? Number(payload.empresa_id) : null;
       if (!payload.vacaciones_ultima_toma) payload.vacaciones_ultima_toma = null;
       try {
         await api.put(`/empleados/${e.id}`, payload);
@@ -672,6 +708,185 @@
         handleApiError(err);
       }
     });
+  }
+
+  /* ------------------------------------------------------------------
+     Gestión de empresas (Ecodes, Envsol, o las que hagan falta)
+     ------------------------------------------------------------------ */
+
+  function empresaFormHtml(emp = {}) {
+    return `
+      <div class="field">
+        <label>Nombre / razón social</label>
+        <input type="text" name="nombre" value="${escapeHtml(emp.nombre) || ""}" required>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>NIT</label>
+          <input type="text" name="nit" value="${escapeHtml(emp.nit) || ""}" required>
+        </div>
+        <div class="field">
+          <label>Ciudad</label>
+          <input type="text" name="ciudad" value="${escapeHtml(emp.ciudad) || "Bogotá D.C."}" required>
+        </div>
+      </div>
+      <div class="field">
+        <label>Dirección</label>
+        <input type="text" name="direccion" value="${escapeHtml(emp.direccion) || ""}">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Teléfono</label>
+          <input type="text" name="telefono" value="${escapeHtml(emp.telefono) || ""}">
+        </div>
+        <div class="field">
+          <label>Correo</label>
+          <input type="email" name="correo" value="${escapeHtml(emp.correo) || ""}">
+        </div>
+      </div>
+      <p class="text-faint" style="font-size:11.5px;margin:4px 0 8px;">
+        Quien firma el certificado laboral de esta empresa:
+      </p>
+      <div class="field-row">
+        <div class="field">
+          <label>Nombre de quien firma</label>
+          <input type="text" name="firmante_nombre" value="${escapeHtml(emp.firmante_nombre) || ""}" required>
+        </div>
+        <div class="field">
+          <label>Cargo de quien firma</label>
+          <input type="text" name="firmante_cargo" value="${escapeHtml(emp.firmante_cargo) || "Directora de Talento Humano"}" required>
+        </div>
+      </div>
+      <label class="flex gap-8" style="align-items:center;font-size:13px;font-weight:500;">
+        <input type="checkbox" name="activa" ${emp.activa === false ? "" : "checked"} style="width:auto;">
+        Empresa activa (aparece para asignar a empleados y proyectos nuevos)
+      </label>
+    `;
+  }
+
+  function openEmpresaForm(emp) {
+    const esEdicion = !!emp;
+    const overlay = openModal(`
+      <div class="modal-header">
+        <h3>${esEdicion ? "Editar empresa" : "Nueva empresa"}</h3>
+        <button class="icon-btn" data-close-modal>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="form-empresa">
+        <div class="modal-body">${empresaFormHtml(emp || {})}</div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">${esEdicion ? "Guardar cambios" : "Crear empresa"}</button>
+        </div>
+      </form>
+    `);
+    overlay.querySelector("#form-empresa").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      const payload = Object.fromEntries(fd.entries());
+      payload.activa = fd.has("activa");
+      try {
+        if (esEdicion) {
+          await api.put(`/empresas/${emp.id}`, payload);
+          showToast("Empresa actualizada");
+        } else {
+          await api.post("/empresas", payload);
+          showToast("Empresa creada");
+        }
+        // Ojo: NO se llama closeModal() aquí. openGestionEmpresas() reutiliza el
+        // mismo overlay (mismo id "generic-modal") para mostrar la lista
+        // actualizada; si se cerrara primero, el remove() diferido de
+        // closeModal() borraría también el modal recién abierto.
+        state.empresas = await api.get("/empresas");
+        document.getElementById("f-empresa").innerHTML = '<option value="">Todas las empresas</option>';
+        fillEmpresaFilter();
+        openGestionEmpresas();
+        loadEmpleados();
+      } catch (err) {
+        handleApiError(err);
+      }
+    });
+  }
+
+  function renderListaEmpresas() {
+    const host = document.getElementById("lista-empresas");
+    if (!host) return;
+    host.innerHTML = state.empresas.length
+      ? state.empresas
+          .map(
+            (emp) => `
+      <div class="list-item">
+        <div>
+          <div class="list-item-main">
+            ${escapeHtml(emp.nombre)}
+            ${emp.activa ? "" : '<span class="badge badge-neutral" style="margin-left:6px;">Inactiva</span>'}
+          </div>
+          <div class="list-item-sub">
+            NIT ${escapeHtml(emp.nit)} · ${emp.total_empleados} empleado(s) · ${emp.total_proyectos} proyecto(s)
+          </div>
+        </div>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary btn-sm write-only" data-editar-empresa="${emp.id}">Editar</button>
+          <button class="list-item-remove write-only" data-eliminar-empresa="${emp.id}" title="Eliminar empresa">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          </button>
+        </div>
+      </div>`
+          )
+          .join("")
+      : '<p class="text-faint">No hay empresas registradas todavía.</p>';
+
+    if (isReadOnly()) document.body.classList.add("read-only");
+
+    host.querySelectorAll("[data-editar-empresa]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const emp = state.empresas.find((x) => x.id === Number(btn.dataset.editarEmpresa));
+        openEmpresaForm(emp);
+      });
+    });
+    host.querySelectorAll("[data-eliminar-empresa]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const emp = state.empresas.find((x) => x.id === Number(btn.dataset.eliminarEmpresa));
+        if (!confirm(`¿Eliminar «${emp.nombre}»? Solo es posible si no tiene empleados ni proyectos asignados.`)) return;
+        try {
+          await api.del(`/empresas/${emp.id}`);
+          showToast("Empresa eliminada");
+          state.empresas = await api.get("/empresas");
+          renderListaEmpresas();
+        } catch (err) {
+          handleApiError(err);
+        }
+      });
+    });
+  }
+
+  function openGestionEmpresas() {
+    const overlay = openModal(`
+      <div class="modal-header">
+        <h3>Empresas</h3>
+        <button class="icon-btn" data-close-modal>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted" style="font-size:13px;margin-bottom:14px;">
+          El sistema atiende a más de una empresa a la vez. Estos son sus datos de
+          identificación: los que salen impresos en el certificado laboral de cada empleado.
+        </p>
+        <button class="btn btn-primary btn-sm write-only" id="btn-nueva-empresa" style="margin-bottom:12px;">+ Agregar empresa</button>
+        <div id="lista-empresas"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close-modal>Cerrar</button>
+      </div>
+    `);
+    renderListaEmpresas();
+    overlay.querySelector("#btn-nueva-empresa")?.addEventListener("click", () => openEmpresaForm(null));
+  }
+
+  function bindGestionEmpresas() {
+    document.getElementById("btn-empresas").addEventListener("click", openGestionEmpresas);
   }
 
   init();

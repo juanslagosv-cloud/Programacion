@@ -27,11 +27,14 @@ class Settings(BaseSettings):
     cors_origin_regex: str = ""
 
     # ------------------------------------------------------------------
-    # Datos que salen impresos en el certificado laboral.
-    # Vienen por variable de entorno a propósito: el sistema no puede
-    # inventarse el NIT ni quién firma. Mientras no se configuren, el
-    # certificado sale con estos textos entre corchetes, bien visibles,
-    # para que nadie lo entregue por error sin completar.
+    # Datos de la primera empresa (Ecodes) que el seed carga al arrancar
+    # con la base vacía. Después de esa primera vez, la información de las
+    # empresas (Ecodes, Envsol, o las que hagan falta) se administra desde
+    # la propia aplicación — pantalla Empleados > Empresas — y ya NO se lee
+    # de aquí: el sistema atiende a más de una empresa a la vez, así que no
+    # puede haber un solo NIT fijo en la configuración.
+    # Se conservan estas variables solo por continuidad con instalaciones
+    # que ya las tenían configuradas (por ejemplo, en Render).
     # ------------------------------------------------------------------
     empresa_nombre: str = "ECODES INGENIERÍA S.A.S."
     empresa_nit: str = "[NIT POR CONFIGURAR]"

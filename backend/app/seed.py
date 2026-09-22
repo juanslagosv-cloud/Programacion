@@ -8,9 +8,11 @@ Uso:
 
 from datetime import date, timedelta
 
+from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import (
     Empleado,
+    Empresa,
     EstadoEmpleado,
     EstadoProyecto,
     Estudio,
@@ -69,6 +71,38 @@ def run():
         )
 
         # -------------------------------------------------------------
+        # Empresas
+        #
+        # El sistema no es solo para Ecodes: Ecodes y Envsol comparten esta
+        # misma instalación, y cada empleado y cada proyecto pertenece a una
+        # de las dos. Estos son los datos de arranque; se editan luego desde
+        # Empleados > Empresas sin tocar el servidor.
+        # -------------------------------------------------------------
+        empresa_ecodes = Empresa(
+            nombre="Ecodes Ingeniería S.A.S.",
+            nit=settings.empresa_nit if settings.empresa_nit != "[NIT POR CONFIGURAR]" else "900.123.456-7",
+            ciudad=settings.empresa_ciudad,
+            direccion=settings.empresa_direccion or None,
+            telefono=settings.empresa_telefono or None,
+            correo=settings.empresa_correo or None,
+            firmante_nombre=(
+                settings.firmante_nombre
+                if settings.firmante_nombre != "[NOMBRE DE QUIEN FIRMA]"
+                else "Camila Rojas Mejía"
+            ),
+            firmante_cargo=settings.firmante_cargo,
+        )
+        empresa_envsol = Empresa(
+            nombre="Envsol S.A.S.",
+            nit="901.987.654-3",
+            ciudad="Bogotá D.C.",
+            firmante_nombre="Camila Rojas Mejía",
+            firmante_cargo="Directora de Talento Humano",
+        )
+        db.add_all([empresa_ecodes, empresa_envsol])
+        db.flush()
+
+        # -------------------------------------------------------------
         # Proyectos
         # -------------------------------------------------------------
         p1 = Proyecto(
@@ -78,6 +112,7 @@ def run():
             fecha_fin=date(HOY.year + 1, 2, 28),
             presupuesto=980_000_000,
             estado=EstadoProyecto.activo,
+            empresa=empresa_ecodes,
         )
         p2 = Proyecto(
             nombre="Compensación Forestal Corredor Vial Pacífico",
@@ -86,6 +121,7 @@ def run():
             fecha_fin=date(HOY.year, 12, 15),
             presupuesto=650_000_000,
             estado=EstadoProyecto.activo,
+            empresa=empresa_ecodes,
         )
         p3 = Proyecto(
             nombre="Monitoreo de Biodiversidad Selva Central",
@@ -94,6 +130,7 @@ def run():
             fecha_fin=None,
             presupuesto=1_250_000_000,
             estado=EstadoProyecto.continuo,
+            empresa=empresa_envsol,
         )
         p4 = Proyecto(
             nombre="Gestión Ambiental Corporativa Minera del Norte",
@@ -102,6 +139,7 @@ def run():
             fecha_fin=date(HOY.year, 10, 30),
             presupuesto=410_000_000,
             estado=EstadoProyecto.cierre,
+            empresa=empresa_envsol,
         )
         p5 = Proyecto(
             nombre="Restauración de Bosque Nativo Patagonia",
@@ -110,6 +148,7 @@ def run():
             fecha_fin=date(HOY.year + 1, 8, 30),
             presupuesto=560_000_000,
             estado=EstadoProyecto.activo,
+            empresa=empresa_ecodes,
         )
         db.add_all([p1, p2, p3, p4, p5])
         db.flush()
@@ -312,6 +351,31 @@ def run():
         for indice, data in enumerate(empleados_data):
             data.setdefault("tipo_documento", TipoDocumento.cedula_ciudadania)
             data.setdefault("numero_documento", str(1_012_345_670 + indice * 137))
+
+        # Quién trabaja para cuál de las dos empresas. Los cargos de
+        # restauración y forestal quedan en Ecodes; los de monitoreo y
+        # gestión ambiental corporativa, en Envsol. Los cargos directivos y
+        # administrativos (dirección de talento humano, gerencia financiera)
+        # quedan centralizados en Ecodes, como suele pasar en un grupo con
+        # una empresa matriz.
+        empresa_por_nombre = {
+            "María Fernanda López Duarte": empresa_ecodes,
+            "Andrés Felipe Torres Gómez": empresa_ecodes,
+            "Laura Camila Restrepo Ibáñez": empresa_ecodes,
+            "Juan Sebastián Vargas Peña": empresa_ecodes,
+            "Diana Marcela Sánchez Ortiz": empresa_ecodes,
+            "Ricardo Antonio Molina Paz": empresa_ecodes,
+            "Jorge Iván Castañeda Ruiz": empresa_ecodes,
+            "Pedro Pablo Ospina Duque": empresa_ecodes,
+            "Carlos Eduardo Ramírez Silva": empresa_envsol,
+            "Valentina Herrera Cuesta": empresa_envsol,
+            "Paula Andrea Gil Moreno": empresa_envsol,
+            "Natalia Andrea Peralta Fonseca": empresa_envsol,
+            "Esteban Alejandro Ríos Bermúdez": empresa_envsol,
+            "Sofía Isabel Cárdenas León": empresa_envsol,
+        }
+        for data in empleados_data:
+            data["empresa"] = empresa_por_nombre[data["nombre_completo"]]
 
         empleados = [Empleado(**data) for data in empleados_data]
         db.add_all(empleados)

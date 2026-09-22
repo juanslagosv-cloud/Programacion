@@ -28,6 +28,9 @@
             <option value="Activo">Activo</option>
             <option value="Inactivo">Inactivo</option>
           </select>
+          <select id="f-empresa">
+            <option value="">Todas las empresas</option>
+          </select>
           <select id="f-proyecto">
             <option value="">Todos los proyectos</option>
           </select>
@@ -39,10 +42,16 @@
             <option value="Administrativo">Administrativo</option>
           </select>
         </div>
-        <button class="btn btn-primary write-only" id="btn-nuevo-empleado">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Agregar empleado
-        </button>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary" id="btn-empresas">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+            Empresas
+          </button>
+          <button class="btn btn-primary write-only" id="btn-nuevo-empleado">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Agregar empleado
+          </button>
+        </div>
       </div>
 
       <div class="table-wrap">

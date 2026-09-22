@@ -16,6 +16,7 @@ def _proyecto_con_relaciones(db: Session, proyecto_id: int) -> Proyecto:
         .options(
             joinedload(Proyecto.participaciones),
             joinedload(Proyecto.novedades),
+            joinedload(Proyecto.empresa),
         )
         .filter(Proyecto.id == proyecto_id)
         .first()
@@ -30,6 +31,7 @@ def _to_list_out(proyecto: Proyecto) -> ProyectoListOut:
     data.tamano_equipo = len(proyecto.participaciones)
     data.costo_nomina_mes = costo_nomina_mes_proyecto(proyecto)
     data.porcentaje_rotacion = porcentaje_rotacion_proyecto(proyecto)
+    data.empresa_nombre = proyecto.empresa.nombre if proyecto.empresa else None
     return data
 
 
@@ -38,6 +40,7 @@ def _to_out(proyecto: Proyecto) -> ProyectoOut:
     data.tamano_equipo = len(proyecto.participaciones)
     data.costo_nomina_mes = costo_nomina_mes_proyecto(proyecto)
     data.porcentaje_rotacion = porcentaje_rotacion_proyecto(proyecto)
+    data.empresa_nombre = proyecto.empresa.nombre if proyecto.empresa else None
     for part_out, part in zip(data.participaciones, proyecto.participaciones):
         part_out.empleado_nombre = part.empleado.nombre_completo
         part_out.proyecto_nombre = proyecto.nombre
@@ -47,15 +50,18 @@ def _to_out(proyecto: Proyecto) -> ProyectoOut:
 @router.get("", response_model=list[ProyectoListOut])
 def listar_proyectos(
     estado: EstadoProyecto | None = None,
+    empresa_id: int | None = None,
     q: str | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     query = db.query(Proyecto).options(
-        joinedload(Proyecto.participaciones), joinedload(Proyecto.novedades)
+        joinedload(Proyecto.participaciones), joinedload(Proyecto.novedades), joinedload(Proyecto.empresa)
     )
     if estado:
         query = query.filter(Proyecto.estado == estado)
+    if empresa_id:
+        query = query.filter(Proyecto.empresa_id == empresa_id)
     if q:
         query = query.filter(Proyecto.nombre.ilike(f"%{q}%"))
     proyectos = query.order_by(Proyecto.nombre).all()

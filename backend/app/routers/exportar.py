@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import Empleado, Estudio, Experiencia, Nomina, Novedad, Participacion, Proyecto
+from app.models import Empleado, Empresa, Estudio, Experiencia, Nomina, Novedad, Participacion, Proyecto
 
 router = APIRouter(prefix="/exportar", tags=["Exportar"])
 
@@ -19,6 +19,8 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
         [
             {
                 "id": e.id,
+                "empresa_id": e.empresa_id,
+                "empresa_nombre": e.empresa.nombre if e.empresa else None,
                 "nombre_completo": e.nombre_completo,
                 "tipo_documento": e.tipo_documento.value,
                 "numero_documento": e.numero_documento,
@@ -71,6 +73,8 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
         [
             {
                 "id": p.id,
+                "empresa_id": p.empresa_id,
+                "empresa_nombre": p.empresa.nombre if p.empresa else None,
                 "nombre": p.nombre,
                 "contratante": p.contratante,
                 "fecha_inicio": p.fecha_inicio,
@@ -146,8 +150,25 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
         ]
     )
 
+    empresas = db.query(Empresa).all()
+    df_empresas = pd.DataFrame(
+        [
+            {
+                "id": emp.id,
+                "nombre": emp.nombre,
+                "nit": emp.nit,
+                "ciudad": emp.ciudad,
+                "activa": emp.activa,
+                "total_empleados": len(emp.empleados),
+                "total_proyectos": len(emp.proyectos),
+            }
+            for emp in empresas
+        ]
+    )
+
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df_empresas.to_excel(writer, sheet_name="empresas", index=False)
         df_empleados.to_excel(writer, sheet_name="empleados", index=False)
         df_estudios.to_excel(writer, sheet_name="estudios", index=False)
         df_experiencia.to_excel(writer, sheet_name="experiencia", index=False)

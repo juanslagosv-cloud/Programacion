@@ -33,6 +33,7 @@ def _empleado_con_relaciones(db: Session, empleado_id: int) -> Empleado:
             joinedload(Empleado.estudios),
             joinedload(Empleado.experiencias),
             joinedload(Empleado.participaciones),
+            joinedload(Empleado.empresa),
         )
         .filter(Empleado.id == empleado_id)
         .first()
@@ -47,6 +48,7 @@ def _to_list_out(empleado: Empleado) -> EmpleadoListOut:
     data.antiguedad_meses = antiguedad_meses(empleado)
     data.porcentaje_total = porcentaje_total_empleado(empleado)
     data.proyectos = [p.proyecto.nombre for p in empleado.participaciones]
+    data.empresa_nombre = empleado.empresa.nombre if empleado.empresa else None
     return data
 
 
@@ -54,6 +56,7 @@ def _to_out(empleado: Empleado) -> EmpleadoOut:
     data = EmpleadoOut.model_validate(empleado)
     data.antiguedad_meses = antiguedad_meses(empleado)
     data.porcentaje_total = porcentaje_total_empleado(empleado)
+    data.empresa_nombre = empleado.empresa.nombre if empleado.empresa else None
     for part_out, part in zip(data.participaciones, empleado.participaciones):
         part_out.empleado_nombre = empleado.nombre_completo
         part_out.proyecto_nombre = part.proyecto.nombre
@@ -65,17 +68,23 @@ def listar_empleados(
     estado: EstadoEmpleado | None = None,
     proyecto_id: int | None = None,
     tipo_cargo: TipoCargo | None = None,
+    empresa_id: int | None = None,
     q: str | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     query = db.query(Empleado).options(
-        joinedload(Empleado.participaciones), joinedload(Empleado.estudios), joinedload(Empleado.experiencias)
+        joinedload(Empleado.participaciones),
+        joinedload(Empleado.estudios),
+        joinedload(Empleado.experiencias),
+        joinedload(Empleado.empresa),
     )
     if estado:
         query = query.filter(Empleado.estado == estado)
     if tipo_cargo:
         query = query.filter(Empleado.tipo_cargo == tipo_cargo)
+    if empresa_id:
+        query = query.filter(Empleado.empresa_id == empresa_id)
     if q:
         query = query.filter(Empleado.nombre_completo.ilike(f"%{q}%"))
 
@@ -269,6 +278,16 @@ def certificado_laboral(
     Lo pueden emitir ambos roles: es un documento de consulta, no modifica nada.
     """
     empleado = _empleado_con_relaciones(db, empleado_id)
+
+    if empleado.empresa is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"{empleado.nombre_completo} no tiene una empresa asignada (Ecodes, Envsol, u otra), "
+                "así que no se puede saber qué razón social y NIT imprimir en el certificado. "
+                "Asígnale una empresa desde su ficha y vuelve a intentarlo."
+            ),
+        )
 
     if incluir_salario and not empleado.nominas:
         raise HTTPException(

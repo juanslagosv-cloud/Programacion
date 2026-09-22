@@ -2,10 +2,14 @@
 
 El certificado se arma con los datos que ya están en el sistema (nombre,
 documento, cargo, fecha de ingreso y, si se pide, el salario de la última
-nómina registrada). Los datos de la empresa y de quien firma vienen de la
-configuración, porque el sistema no puede inventárselos.
+nómina registrada). Los datos de la empresa y de quien firma salen de la
+empresa asignada al empleado (tabla ``empresas``), no de una configuración
+fija: en un sistema que atiende a Ecodes y a Envsol a la vez, el certificado
+de cada quien tiene que llevar el membrete de SU empresa.
 """
 
+import re
+import unicodedata
 from datetime import date
 from io import BytesIO
 from pathlib import Path
@@ -17,10 +21,26 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from app.config import settings
-from app.models import Empleado, EstadoEmpleado, Genero, Nomina, TipoNovedad
+from app.models import Empleado, Empresa, EstadoEmpleado, Genero, Nomina, TipoNovedad
 
-LOGO = Path(__file__).parent / "assets" / "logo.jpg"
+ASSETS = Path(__file__).parent / "assets"
+LOGO_ECODES = ASSETS / "logo.jpg"  # el logo original del proyecto, usado como respaldo
+
+
+def _logo_de(empresa: Empresa) -> Path | None:
+    """Busca un logo propio de la empresa; si no existe, usa el de Ecodes.
+
+    Convención de archivo, sin necesidad de subir nada por la aplicación:
+    ``backend/app/assets/logo_<nombre-en-minusculas-y-guiones-bajos>.jpg``.
+    Por ejemplo, para "Envsol S.A.S." sería ``logo_envsol_s_a_s.jpg``.
+    """
+    slug = unicodedata.normalize("NFKD", empresa.nombre)
+    slug = slug.encode("ascii", "ignore").decode("ascii").lower()
+    slug = re.sub(r"[^a-z0-9]+", "_", slug).strip("_")
+    propio = ASSETS / f"logo_{slug}.jpg"
+    if propio.exists():
+        return propio
+    return LOGO_ECODES if LOGO_ECODES.exists() else None
 
 MESES = (
     "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -119,16 +139,17 @@ def _salario_vigente(empleado: Empleado) -> float | None:
     return float(registros[0].salario_base) if registros else None
 
 
-def _encabezado(estilos) -> list:
-    """Membrete: logo a la izquierda y datos de la empresa a la derecha."""
-    datos = [f"<b>{settings.empresa_nombre}</b>", f"NIT {settings.empresa_nit}"]
-    for extra in (settings.empresa_direccion, settings.empresa_telefono, settings.empresa_correo):
+def _encabezado(estilos, empresa: Empresa) -> list:
+    """Membrete: logo de la empresa del empleado a la izquierda, sus datos a la derecha."""
+    datos = [f"<b>{empresa.nombre}</b>", f"NIT {empresa.nit}"]
+    for extra in (empresa.direccion, empresa.telefono, empresa.correo):
         if extra:
             datos.append(extra)
     bloque = Paragraph("<br/>".join(datos), estilos["membrete"])
 
-    if LOGO.exists():
-        fila = [[Image(str(LOGO), width=2.6 * cm, height=2.6 * cm, kind="proportional"), bloque]]
+    logo = _logo_de(empresa)
+    if logo:
+        fila = [[Image(str(logo), width=2.6 * cm, height=2.6 * cm, kind="proportional"), bloque]]
         tabla = Table(fila, colWidths=[3.2 * cm, 12.3 * cm])
     else:
         tabla = Table([[bloque]], colWidths=[15.5 * cm])
@@ -144,14 +165,26 @@ def _encabezado(estilos) -> list:
 
 
 def generar_certificado_laboral(empleado: Empleado, incluir_salario: bool = False) -> BytesIO:
-    """Arma el PDF del certificado y lo devuelve en memoria."""
+    """Arma el PDF del certificado y lo devuelve en memoria.
+
+    Requiere que ``empleado.empresa`` esté cargada y no sea None: el
+    endpoint que llama a esto valida esa condición antes (ver
+    routers/empleados.py), porque sin saber a qué empresa pertenece la
+    persona no hay NIT ni razón social que imprimir.
+    """
+    if empleado.empresa is None:
+        raise ValueError(
+            f"{empleado.nombre_completo} no tiene empresa asignada; no se puede generar el certificado."
+        )
+    empresa = empleado.empresa
+
     hoy = date.today()
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=letter,
         leftMargin=3 * cm, rightMargin=3 * cm, topMargin=2.2 * cm, bottomMargin=2.2 * cm,
         title=f"Certificado laboral - {empleado.nombre_completo}",
-        author=settings.empresa_nombre,
+        author=empresa.nombre,
     )
 
     base = getSampleStyleSheet()
@@ -173,11 +206,11 @@ def generar_certificado_laboral(empleado: Empleado, incluir_salario: bool = Fals
     documento = empleado.numero_documento or "[DOCUMENTO NO REGISTRADO]"
     retiro = _fecha_retiro(empleado)
 
-    elementos = _encabezado(estilos)
+    elementos = _encabezado(estilos, empresa)
     elementos += [
         Paragraph("CERTIFICADO LABORAL", estilos["titulo"]),
         Spacer(1, 0.8 * cm),
-        Paragraph(f"{settings.empresa_nombre} <b>CERTIFICA QUE:</b>", estilos["cuerpo"]),
+        Paragraph(f"{empresa.nombre} <b>CERTIFICA QUE:</b>", estilos["cuerpo"]),
         Spacer(1, 0.5 * cm),
     ]
 
@@ -219,7 +252,7 @@ def generar_certificado_laboral(empleado: Empleado, incluir_salario: bool = Fals
         Paragraph(cuerpo, estilos["cuerpo"]),
         Spacer(1, 0.9 * cm),
         Paragraph(
-            f"Se expide en {settings.empresa_ciudad}, a los {hoy.day} días del mes de "
+            f"Se expide en {empresa.ciudad}, a los {hoy.day} días del mes de "
             f"{MESES[hoy.month - 1]} de {hoy.year}, a solicitud del interesado.",
             estilos["cuerpo"],
         ),
@@ -227,9 +260,9 @@ def generar_certificado_laboral(empleado: Empleado, incluir_salario: bool = Fals
     ]
 
     firma = Table(
-        [[""], [Paragraph(f"<b>{settings.firmante_nombre}</b>", estilos["centrado"])],
-         [Paragraph(settings.firmante_cargo, estilos["centrado"])],
-         [Paragraph(settings.empresa_nombre, estilos["centrado"])]],
+        [[""], [Paragraph(f"<b>{empresa.firmante_nombre}</b>", estilos["centrado"])],
+         [Paragraph(empresa.firmante_cargo, estilos["centrado"])],
+         [Paragraph(empresa.nombre, estilos["centrado"])]],
         colWidths=[8 * cm],
     )
     firma.setStyle(TableStyle([

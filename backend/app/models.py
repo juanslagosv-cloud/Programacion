@@ -82,6 +82,36 @@ class TipoNovedad(str, enum.Enum):
 # Usuarios (autenticación)
 # ---------------------------------------------------------------------------
 
+class Empresa(Base):
+    """Cada una de las empresas que operan en este mismo sistema.
+
+    El sistema no está pensado para una sola empresa: Ecodes y Envsol
+    comparten la misma instalación, y cada empleado y cada proyecto
+    pertenece a una de las dos. Los datos de aquí son los que salen
+    impresos en el certificado laboral (NIT, firmante, etc.), así que ya
+    no viven en variables de entorno sino que se administran desde la
+    propia aplicación.
+    """
+
+    __tablename__ = "empresas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(200), unique=True)
+    nit: Mapped[str] = mapped_column(String(30))
+    ciudad: Mapped[str] = mapped_column(String(120), default="Bogotá D.C.")
+    direccion: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    telefono: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    correo: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    # Quien firma el certificado laboral de esta empresa.
+    firmante_nombre: Mapped[str] = mapped_column(String(150))
+    firmante_cargo: Mapped[str] = mapped_column(String(150), default="Directora de Talento Humano")
+    activa: Mapped[bool] = mapped_column(default=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    empleados: Mapped[list["Empleado"]] = relationship(back_populates="empresa")
+    proyectos: Mapped[list["Proyecto"]] = relationship(back_populates="empresa")
+
+
 class Usuario(Base):
     __tablename__ = "usuarios"
 
@@ -109,6 +139,9 @@ class Empleado(Base):
     # Único: no puede haber dos personas con el mismo documento. Es nullable
     # porque en bases ya existentes hay registros previos sin el dato.
     numero_documento: Mapped[str | None] = mapped_column(String(30), unique=True, index=True, nullable=True)
+    empresa_id: Mapped[int | None] = mapped_column(
+        ForeignKey("empresas.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     foto_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     genero: Mapped[Genero] = mapped_column(Enum(Genero, name="genero"))
     fecha_nacimiento: Mapped[date] = mapped_column(Date)
@@ -142,6 +175,7 @@ class Empleado(Base):
     nominas: Mapped[list["Nomina"]] = relationship(
         back_populates="empleado", cascade="all, delete-orphan"
     )
+    empresa: Mapped["Empresa | None"] = relationship(back_populates="empleados")
 
 
 class Estudio(Base):
@@ -177,7 +211,12 @@ class Proyecto(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(200), index=True)
+    # A quién contrató Ecodes o Envsol para este proyecto (el cliente), no
+    # confundir con empresa_id, que es cuál de las dos opera el proyecto.
     contratante: Mapped[str] = mapped_column(String(200))
+    empresa_id: Mapped[int | None] = mapped_column(
+        ForeignKey("empresas.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     fecha_inicio: Mapped[date] = mapped_column(Date)
     fecha_fin: Mapped[date | None] = mapped_column(Date, nullable=True)
     presupuesto: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
@@ -190,6 +229,7 @@ class Proyecto(Base):
         back_populates="proyecto", cascade="all, delete-orphan"
     )
     novedades: Mapped[list["Novedad"]] = relationship(back_populates="proyecto")
+    empresa: Mapped["Empresa | None"] = relationship(back_populates="proyectos")
 
 
 # ---------------------------------------------------------------------------

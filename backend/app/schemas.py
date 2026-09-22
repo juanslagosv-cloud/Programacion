@@ -110,6 +110,37 @@ class ParticipacionOut(ParticipacionBase):
 
 
 # ---------------------------------------------------------------------------
+# Empresas
+# ---------------------------------------------------------------------------
+
+class EmpresaBase(BaseModel):
+    nombre: str
+    nit: str
+    ciudad: str = "Bogotá D.C."
+    direccion: Optional[str] = None
+    telefono: Optional[str] = None
+    correo: Optional[str] = None
+    firmante_nombre: str
+    firmante_cargo: str = "Directora de Talento Humano"
+    activa: bool = True
+
+
+class EmpresaCreate(EmpresaBase):
+    pass
+
+
+class EmpresaUpdate(EmpresaBase):
+    pass
+
+
+class EmpresaOut(EmpresaBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    total_empleados: int = 0
+    total_proyectos: int = 0
+
+
+# ---------------------------------------------------------------------------
 # Empleados
 # ---------------------------------------------------------------------------
 
@@ -117,6 +148,7 @@ class EmpleadoBase(BaseModel):
     nombre_completo: str
     tipo_documento: TipoDocumento = TipoDocumento.cedula_ciudadania
     numero_documento: Optional[str] = Field(default=None, max_length=30)
+    empresa_id: Optional[int] = None
     foto_url: Optional[str] = None
     genero: Genero
     fecha_nacimiento: date
@@ -146,6 +178,8 @@ class EmpleadoListOut(BaseModel):
     nombre_completo: str
     tipo_documento: TipoDocumento
     numero_documento: Optional[str] = None
+    empresa_id: Optional[int] = None
+    empresa_nombre: Optional[str] = None
     foto_url: Optional[str] = None
     nombre_cargo: str
     tipo_cargo: TipoCargo
@@ -160,6 +194,7 @@ class EmpleadoListOut(BaseModel):
 class EmpleadoOut(EmpleadoBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    empresa_nombre: Optional[str] = None
     antiguedad_meses: int = 0
     estudios: list[EstudioOut] = []
     experiencias: list[ExperienciaOut] = []
@@ -174,6 +209,7 @@ class EmpleadoOut(EmpleadoBase):
 class ProyectoBase(BaseModel):
     nombre: str
     contratante: str
+    empresa_id: Optional[int] = None
     fecha_inicio: date
     fecha_fin: Optional[date] = None
     presupuesto: float = 0
@@ -191,6 +227,7 @@ class ProyectoUpdate(ProyectoBase):
 class ProyectoListOut(ProyectoBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    empresa_nombre: Optional[str] = None
     tamano_equipo: int = 0
     costo_nomina_mes: float = 0
     porcentaje_rotacion: float = 0
@@ -199,6 +236,7 @@ class ProyectoListOut(ProyectoBase):
 class ProyectoOut(ProyectoBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    empresa_nombre: Optional[str] = None
     tamano_equipo: int = 0
     costo_nomina_mes: float = 0
     porcentaje_rotacion: float = 0

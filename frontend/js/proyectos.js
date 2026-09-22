@@ -1,16 +1,30 @@
 (() => {
-  const state = { proyectos: [], empleados: [], filtros: {} };
+  const state = { proyectos: [], empleados: [], empresas: [], filtros: {} };
 
   async function init() {
     renderShell("proyectos.html", "Proyectos");
     try {
-      state.empleados = await api.get("/empleados");
+      [state.empleados, state.empresas] = await Promise.all([
+        api.get("/empleados"),
+        api.get("/empresas"),
+      ]);
     } catch (err) {
       handleApiError(err);
     }
+    fillEmpresaFilter();
     loadProyectos();
     bindFilters();
     bindNuevoProyecto();
+  }
+
+  function fillEmpresaFilter() {
+    const select = document.getElementById("f-empresa");
+    state.empresas.forEach((emp) => {
+      const opt = document.createElement("option");
+      opt.value = emp.id;
+      opt.textContent = emp.nombre;
+      select.appendChild(opt);
+    });
   }
 
   function bindFilters() {
@@ -25,11 +39,15 @@
       state.filtros.estado = e.target.value;
       loadProyectos();
     });
+    document.getElementById("f-empresa").addEventListener("change", (e) => {
+      state.filtros.empresa_id = e.target.value;
+      loadProyectos();
+    });
   }
 
   async function loadProyectos() {
     const tbody = document.getElementById("proyectos-tbody");
-    tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Cargando proyectos…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="table-empty">Cargando proyectos…</td></tr>`;
     const params = new URLSearchParams();
     Object.entries(state.filtros).forEach(([k, v]) => v && params.set(k, v));
     try {
@@ -38,7 +56,7 @@
       renderTable(proyectos);
     } catch (err) {
       handleApiError(err);
-      tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No se pudieron cargar los proyectos.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="table-empty">No se pudieron cargar los proyectos.</td></tr>`;
     }
   }
 
@@ -51,7 +69,7 @@
   function renderTable(proyectos) {
     const tbody = document.getElementById("proyectos-tbody");
     if (!proyectos.length) {
-      tbody.innerHTML = `<tr><td colspan="8" class="table-empty">No se encontraron proyectos con estos filtros.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="table-empty">No se encontraron proyectos con estos filtros.</td></tr>`;
       return;
     }
     tbody.innerHTML = proyectos
@@ -59,6 +77,7 @@
         (p) => `
       <tr data-id="${p.id}">
         <td><div class="person-name">${escapeHtml(p.nombre)}</div></td>
+        <td>${p.empresa_nombre ? `<span class="badge badge-info">${escapeHtml(p.empresa_nombre)}</span>` : '<span class="badge badge-danger">Sin asignar</span>'}</td>
         <td>${escapeHtml(p.contratante)}</td>
         <td>${formatDate(p.fecha_inicio)}</td>
         <td>${p.fecha_fin ? formatDate(p.fecha_fin) : "—"}</td>
@@ -114,6 +133,7 @@
             <button class="btn btn-secondary btn-sm write-only" id="btn-editar-proyecto">Editar</button>
           </div>
           <div class="info-grid">
+            <div class="info-item"><div class="label">Empresa</div><div class="value">${escapeHtml(p.empresa_nombre) || "Sin asignar"}</div></div>
             <div class="info-item"><div class="label">Fecha de inicio</div><div class="value">${formatDate(p.fecha_inicio)}</div></div>
             <div class="info-item"><div class="label">Fecha de fin estimada</div><div class="value">${p.fecha_fin ? formatDate(p.fecha_fin) : "—"}</div></div>
             <div class="info-item"><div class="label">Presupuesto</div><div class="value">${formatMoney(p.presupuesto)}</div></div>
@@ -227,14 +247,27 @@
 
   function proyectoFormHtml(p = {}) {
     const estado = p.estado || "Activo";
+    const empresaId = p.empresa_id ?? "";
     return `
+      <div class="field-row">
+        <div class="field">
+          <label>Empresa</label>
+          <select name="empresa_id" required>
+            <option value="" disabled ${empresaId === "" ? "selected" : ""}>Selecciona una empresa</option>
+            ${state.empresas
+              .map((emp) => `<option value="${emp.id}" ${String(emp.id) === String(empresaId) ? "selected" : ""}>${escapeHtml(emp.nombre)}</option>`)
+              .join("")}
+          </select>
+          <span class="text-faint" style="font-size:11px;">Cuál de las empresas opera este proyecto</span>
+        </div>
+        <div class="field">
+          <label>Contratante / cliente</label>
+          <input type="text" name="contratante" value="${escapeHtml(p.contratante) || ""}" required>
+        </div>
+      </div>
       <div class="field">
         <label>Nombre del proyecto</label>
         <input type="text" name="nombre" value="${escapeHtml(p.nombre) || ""}" required>
-      </div>
-      <div class="field">
-        <label>Contratante / cliente</label>
-        <input type="text" name="contratante" value="${escapeHtml(p.contratante) || ""}" required>
       </div>
       <div class="field-row">
         <div class="field">
@@ -283,6 +316,7 @@
         const fd = new FormData(ev.target);
         const payload = Object.fromEntries(fd.entries());
         payload.presupuesto = Number(payload.presupuesto || 0);
+        payload.empresa_id = payload.empresa_id ? Number(payload.empresa_id) : null;
         if (!payload.fecha_fin) delete payload.fecha_fin;
         try {
           await api.post("/proyectos", payload);
@@ -317,6 +351,7 @@
       const fd = new FormData(ev.target);
       const payload = Object.fromEntries(fd.entries());
       payload.presupuesto = Number(payload.presupuesto || 0);
+      payload.empresa_id = payload.empresa_id ? Number(payload.empresa_id) : null;
       if (!payload.fecha_fin) payload.fecha_fin = null;
       try {
         await api.put(`/proyectos/${p.id}`, payload);

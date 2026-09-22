@@ -27,6 +27,9 @@
             <option value="Continuo">Continuo</option>
             <option value="Cierre">Cierre</option>
           </select>
+          <select id="f-empresa">
+            <option value="">Todas las empresas</option>
+          </select>
         </div>
         <button class="btn btn-primary write-only" id="btn-nuevo-proyecto">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -39,6 +42,7 @@
           <thead>
             <tr>
               <th>Proyecto</th>
+              <th>Empresa</th>
               <th>Contratante</th>
               <th>Inicio</th>
               <th>Fin estimado</th>
@@ -49,7 +53,7 @@
             </tr>
           </thead>
           <tbody id="proyectos-tbody">
-            <tr><td colspan="8" class="table-empty">Cargando proyectos…</td></tr>
+            <tr><td colspan="9" class="table-empty">Cargando proyectos…</td></tr>
           </tbody>
         </table>
       </div>

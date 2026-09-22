@@ -3,11 +3,17 @@
 # Cómo usarlo:
 #   1. En Render: New > Blueprint, y conecta este repositorio.
 #   2. Render lee este archivo y crea el servicio web y la base de datos.
-#   3. Cuando termine, siembra los datos de ejemplo UNA sola vez desde
-#      la pestaña "Shell" del servicio:  python -m app.seed
-#      (Ojo: el seed borra y recrea las tablas. No lo corras de nuevo
-#       una vez tengas información real.)
+#   3. Los datos de ejemplo (incluidas las empresas Ecodes y Envsol) se
+#      cargan solos la primera vez que la base está vacía; el buildCommand
+#      de abajo se encarga (ver el modo --solo-si-vacia en app/seed.py).
+#      No hace falta la pestaña "Shell", que el plan gratuito no incluye.
 #   4. Copia la URL del servicio y pégala en frontend/js/config.js.
+#
+# Si el modelo cambia (columnas o tablas nuevas) después de que la base ya
+# tenga información, --solo-si-vacia no las agrega: create_all() no altera
+# tablas existentes. Se resuelve con SEED_RESET=1 (ver la sección 11 del
+# README) — borra y recarga todo, así que solo mientras sean datos de
+# ejemplo.
 
 databases:
   - name: ecodes-th-db
@@ -47,8 +53,12 @@ services:
         value: https://.*\.vercel\.app
       - key: CORS_ORIGINS
         value: http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080
-      # Datos del certificado laboral. sync: false hace que Render los pida
-      # en el panel en vez de guardarlos en el repositorio.
+      # Datos de la PRIMERA empresa (Ecodes) que se crea al sembrar la base
+      # vacía. Después de esa primera vez, tanto Ecodes como Envsol (o
+      # cualquier otra) se administran desde la propia aplicación —
+      # Empleados > Empresas — y estas variables ya no se usan.
+      # sync: false hace que Render las pida en el panel, sin guardarlas en
+      # el repositorio.
       - key: EMPRESA_NOMBRE
         value: ECODES INGENIERÍA S.A.S.
       - key: EMPRESA_NIT
