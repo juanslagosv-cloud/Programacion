@@ -73,6 +73,35 @@ const api = {
   put: (path, body) => apiFetch(path, { method: "PUT", body: JSON.stringify(body) }),
   del: (path) => apiFetch(path, { method: "DELETE" }),
 
+  async descargarCertificado(empleadoId, incluirSalario) {
+    const token = getToken();
+    const res = await fetch(
+      `${API_BASE}/empleados/${empleadoId}/certificado-laboral?incluir_salario=${incluirSalario}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) {
+      // El backend explica el motivo (por ejemplo, que no hay nómina registrada).
+      let detalle = "No se pudo generar el certificado";
+      try {
+        const data = await res.json();
+        if (data && data.detail) detalle = data.detail;
+      } catch (_) {
+        /* la respuesta no era JSON: se queda el mensaje genérico */
+      }
+      throw new ApiError(res.status, detalle);
+    }
+    const blob = await res.blob();
+    const nombre = (res.headers.get("Content-Disposition") || "").match(/filename="(.+?)"/);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre ? nombre[1] : "certificado_laboral.pdf";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
   async exportarExcel() {
     const token = getToken();
     const res = await fetch(`${API_BASE}/exportar/excel`, {

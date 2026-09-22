@@ -26,6 +26,22 @@ class Settings(BaseSettings):
     # Vercel genera en cada despliegue. Ej: https://.*\.vercel\.app
     cors_origin_regex: str = ""
 
+    # ------------------------------------------------------------------
+    # Datos que salen impresos en el certificado laboral.
+    # Vienen por variable de entorno a propósito: el sistema no puede
+    # inventarse el NIT ni quién firma. Mientras no se configuren, el
+    # certificado sale con estos textos entre corchetes, bien visibles,
+    # para que nadie lo entregue por error sin completar.
+    # ------------------------------------------------------------------
+    empresa_nombre: str = "ECODES INGENIERÍA S.A.S."
+    empresa_nit: str = "[NIT POR CONFIGURAR]"
+    empresa_ciudad: str = "Bogotá D.C."
+    empresa_direccion: str = ""
+    empresa_telefono: str = ""
+    empresa_correo: str = ""
+    firmante_nombre: str = "[NOMBRE DE QUIEN FIRMA]"
+    firmante_cargo: str = "Directora de Talento Humano"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property

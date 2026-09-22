@@ -20,6 +20,8 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
             {
                 "id": e.id,
                 "nombre_completo": e.nombre_completo,
+                "tipo_documento": e.tipo_documento.value,
+                "numero_documento": e.numero_documento,
                 "genero": e.genero.value,
                 "fecha_nacimiento": e.fecha_nacimiento,
                 "direccion": e.direccion,

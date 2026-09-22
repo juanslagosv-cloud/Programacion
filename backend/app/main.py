@@ -30,6 +30,9 @@ cors_kwargs = {
     "allow_credentials": True,
     "allow_methods": ["*"],
     "allow_headers": ["*"],
+    # Sin esto el navegador no deja que el JavaScript lea el nombre del
+    # archivo, y las descargas salen con un nombre genérico.
+    "expose_headers": ["Content-Disposition"],
 }
 if settings.cors_origin_regex:
     cors_kwargs["allow_origin_regex"] = settings.cors_origin_regex

@@ -24,6 +24,7 @@ from app.models import (
     Proyecto,
     RolUsuario,
     TipoCargo,
+    TipoDocumento,
     TipoNovedad,
     Usuario,
 )
@@ -305,6 +306,13 @@ def run():
             ),
         ]
 
+        # Documentos de identidad de ejemplo: números ficticios, pero con la
+        # forma de una cédula colombiana y asignados de manera estable para
+        # que no cambien entre siembras.
+        for indice, data in enumerate(empleados_data):
+            data.setdefault("tipo_documento", TipoDocumento.cedula_ciudadania)
+            data.setdefault("numero_documento", str(1_012_345_670 + indice * 137))
+
         empleados = [Empleado(**data) for data in empleados_data]
         db.add_all(empleados)
         db.flush()
@@ -527,11 +535,21 @@ def run_si_esta_vacia() -> None:
 
 
 if __name__ == "__main__":
+    import os
     import sys
 
     # --solo-si-vacia: no destruye nada, es el modo que se usa al desplegar.
     # Sin argumentos: BORRA las tablas y las vuelve a crear desde cero.
     if "--solo-si-vacia" in sys.argv:
-        run_si_esta_vacia()
+        # Válvula de escape para bases ya creadas: cuando el modelo cambia
+        # (columnas nuevas), create_all() NO altera las tablas existentes.
+        # Poniendo SEED_RESET=1 en las variables de entorno de Render y
+        # redesplegando, la base se recrea desde cero. Hay que quitar la
+        # variable después, o cada despliegue borrará los datos.
+        if os.getenv("SEED_RESET", "").strip().lower() in {"1", "true", "si", "sí"}:
+            print("SEED_RESET activo: se recrea la base desde cero y se pierden los datos actuales.")
+            run()
+        else:
+            run_si_esta_vacia()
     else:
         run()

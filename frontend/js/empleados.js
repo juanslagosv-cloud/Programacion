@@ -124,7 +124,10 @@
             </div>
           </div>
         </td>
-        <td>${escapeHtml(e.nombre_cargo)}</td>
+        <td>
+          ${escapeHtml(e.nombre_cargo)}
+          <div class="person-sub">${e.numero_documento ? `${e.tipo_documento} ${escapeHtml(e.numero_documento)}` : "Sin documento"}</div>
+        </td>
         <td><span class="badge badge-neutral">${e.tipo_cargo}</span></td>
         <td><span class="badge ${e.periodicidad_pago === "Quincenal" ? "badge-info" : "badge-neutral"}">${e.periodicidad_pago}</span></td>
         <td>${e.proyectos.length ? e.proyectos.map((p) => `<div class="person-sub">${escapeHtml(p)}</div>`).join("") : '<span class="text-faint">Sin asignar</span>'}</td>
@@ -193,6 +196,7 @@
             <button class="btn btn-secondary btn-sm write-only" id="btn-editar-empleado">Editar</button>
           </div>
           <div class="info-grid">
+            <div class="info-item"><div class="label">Documento</div><div class="value">${e.tipo_documento} ${escapeHtml(e.numero_documento) || "—"}</div></div>
             <div class="info-item"><div class="label">Género</div><div class="value">${e.genero}</div></div>
             <div class="info-item"><div class="label">Fecha de nacimiento</div><div class="value">${formatDate(e.fecha_nacimiento)}</div></div>
             <div class="info-item"><div class="label">Nivel educativo</div><div class="value">${e.nivel_educativo}</div></div>
@@ -316,6 +320,17 @@
         </div>
 
         <div class="panel-section">
+          <div class="panel-section-title">Documentos</div>
+          <p class="text-muted" style="font-size:12.5px;margin-bottom:10px;">
+            Certificado laboral en PDF con el nombre, el documento, el cargo y la fecha de ingreso.
+          </p>
+          <div class="flex gap-8" style="flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" data-certificado="sin">Sin salario</button>
+            <button class="btn btn-secondary btn-sm" data-certificado="con">Con salario</button>
+          </div>
+        </div>
+
+        <div class="panel-section">
           <div class="panel-section-title">Vacaciones</div>
           <div class="info-grid">
             <div class="info-item"><div class="label">Última toma</div><div class="value">${formatDate(e.vacaciones_ultima_toma)}</div></div>
@@ -434,6 +449,24 @@
       });
     });
 
+    document.querySelectorAll("[data-certificado]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const conSalario = btn.dataset.certificado === "con";
+        const textoOriginal = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Generando…";
+        try {
+          await api.descargarCertificado(e.id, conSalario);
+          showToast("Certificado generado");
+        } catch (err) {
+          handleApiError(err);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = textoOriginal;
+        }
+      });
+    });
+
     document.getElementById("btn-editar-empleado").addEventListener("click", () => openEditModal(e));
     document.getElementById("btn-eliminar-empleado").addEventListener("click", async () => {
       if (!confirm(`¿Eliminar a ${e.nombre_completo}? Esta acción no se puede deshacer.`)) return;
@@ -480,8 +513,22 @@
     const nivel = e.nivel_educativo || "Profesional";
     const tipo = e.tipo_cargo || "Profesional";
     const periodicidad = e.periodicidad_pago || "Mensual";
+    const tipoDoc = e.tipo_documento || "CC";
     const estado = e.estado || "Activo";
     return `
+      <div class="field-row">
+        <div class="field">
+          <label>Tipo de documento</label>
+          <select name="tipo_documento">
+            ${["CC", "CE", "PA", "PEP"].map((t) => `<option ${t === tipoDoc ? "selected" : ""}>${t}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label>Número de documento</label>
+          <input type="text" name="numero_documento" value="${escapeHtml(e.numero_documento) || ""}">
+          <span class="text-faint" style="font-size:11px;">Necesario para emitir el certificado laboral</span>
+        </div>
+      </div>
       <div class="field-row">
         <div class="field">
           <label>Nombre completo</label>
@@ -578,6 +625,7 @@
         const fd = new FormData(ev.target);
         const payload = Object.fromEntries(fd.entries());
         payload.vacaciones_dias_pendientes = Number(payload.vacaciones_dias_pendientes || 0);
+      payload.numero_documento = (payload.numero_documento || "").trim() || null;
         if (!payload.vacaciones_ultima_toma) delete payload.vacaciones_ultima_toma;
         try {
           await api.post("/empleados", payload);
@@ -612,6 +660,7 @@
       const fd = new FormData(ev.target);
       const payload = Object.fromEntries(fd.entries());
       payload.vacaciones_dias_pendientes = Number(payload.vacaciones_dias_pendientes || 0);
+      payload.numero_documento = (payload.numero_documento || "").trim() || null;
       if (!payload.vacaciones_ultima_toma) payload.vacaciones_ultima_toma = null;
       try {
         await api.put(`/empleados/${e.id}`, payload);

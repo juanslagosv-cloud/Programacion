@@ -1,9 +1,13 @@
+import re
+import unicodedata
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
+from app.certificados import generar_certificado_laboral
 from app.deps import get_current_user, require_write
 from app.models import Empleado, EstadoEmpleado, Estudio, Experiencia, TipoCargo
 from app.schemas import (
@@ -248,3 +252,43 @@ def eliminar_experiencia(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Experiencia no encontrada")
     db.delete(experiencia)
     db.commit()
+
+
+@router.get("/{empleado_id}/certificado-laboral")
+def certificado_laboral(
+    empleado_id: int,
+    incluir_salario: bool = Query(
+        default=False,
+        description="Si es verdadero, el certificado indica el salario del último período de nómina registrado.",
+    ),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Genera el certificado laboral del empleado en PDF.
+
+    Lo pueden emitir ambos roles: es un documento de consulta, no modifica nada.
+    """
+    empleado = _empleado_con_relaciones(db, empleado_id)
+
+    if incluir_salario and not empleado.nominas:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"{empleado.nombre_completo} no tiene nómina registrada, así que no se "
+                "puede certificar un salario. Registra la nómina del período o genera "
+                "el certificado sin salario."
+            ),
+        )
+
+    pdf = generar_certificado_laboral(empleado, incluir_salario=incluir_salario)
+
+    # Nombre de archivo legible: "certificado_laboral_maria_lopez.pdf"
+    base = unicodedata.normalize("NFKD", empleado.nombre_completo)
+    base = base.encode("ascii", "ignore").decode("ascii").lower()
+    base = re.sub(r"[^a-z0-9]+", "_", base).strip("_") or f"empleado_{empleado_id}"
+
+    return StreamingResponse(
+        pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="certificado_laboral_{base}.pdf"'},
+    )

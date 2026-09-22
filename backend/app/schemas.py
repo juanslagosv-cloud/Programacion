@@ -11,6 +11,7 @@ from app.models import (
     PeriodicidadPago,
     RolUsuario,
     TipoCargo,
+    TipoDocumento,
     TipoNovedad,
 )
 
@@ -114,6 +115,8 @@ class ParticipacionOut(ParticipacionBase):
 
 class EmpleadoBase(BaseModel):
     nombre_completo: str
+    tipo_documento: TipoDocumento = TipoDocumento.cedula_ciudadania
+    numero_documento: Optional[str] = Field(default=None, max_length=30)
     foto_url: Optional[str] = None
     genero: Genero
     fecha_nacimiento: date
@@ -141,6 +144,8 @@ class EmpleadoListOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     nombre_completo: str
+    tipo_documento: TipoDocumento
+    numero_documento: Optional[str] = None
     foto_url: Optional[str] = None
     nombre_cargo: str
     tipo_cargo: TipoCargo

@@ -276,7 +276,48 @@ La hoja `nomina` del Excel exporta el desglose completo (`salud_empleado`,
 
 ---
 
-## 7. Endpoints principales
+## 7. Certificado laboral en PDF
+
+Desde la ficha de cada empleado (panel lateral, sección **Documentos**) se
+genera un certificado laboral en PDF con el logo de Ecodes, listo para firmar
+y entregar. Hay dos botones, porque es lo que suele pedirse:
+
+- **Sin salario** — para trámites donde solo hace falta acreditar el vínculo.
+- **Con salario** — toma el salario base del último período de nómina
+  registrado y lo imprime en números y en letras, como se acostumbra.
+
+El documento incluye nombre completo, tipo y número de documento, cargo y
+fecha de ingreso. Si la persona ya no está activa, el texto pasa a tiempo
+pasado y agrega la fecha de retiro, que se toma de la novedad de tipo
+**Salida**. Lo pueden emitir los dos roles: es una consulta, no modifica nada.
+
+### 7.1. Datos de la empresa y de quien firma
+
+El sistema **no se inventa** el NIT ni el nombre de quien firma. Esos datos se
+configuran por variables de entorno (en Render, pestaña *Environment*; en
+local, el archivo `.env`):
+
+| Variable | Para qué sirve |
+|----------|----------------|
+| `EMPRESA_NOMBRE` | Razón social que encabeza el certificado |
+| `EMPRESA_NIT` | NIT de la empresa |
+| `EMPRESA_CIUDAD` | Ciudad de expedición |
+| `EMPRESA_DIRECCION`, `EMPRESA_TELEFONO`, `EMPRESA_CORREO` | Membrete (opcionales) |
+| `FIRMANTE_NOMBRE` | Quien firma el certificado |
+| `FIRMANTE_CARGO` | Su cargo |
+
+Mientras no se configuren, el PDF sale con textos como `[NIT POR CONFIGURAR]`
+bien visibles, para que nadie lo entregue a medio llenar.
+
+### 7.2. Si pides el certificado con salario y no hay nómina
+
+El sistema responde con un mensaje explicando que esa persona no tiene nómina
+registrada, en vez de emitir un certificado que no dice nada del salario.
+Registra la nómina del período o genera el certificado sin salario.
+
+---
+
+## 8. Endpoints principales
 
 | Método | Ruta                                          | Descripción                                   |
 |--------|------------------------------------------------|------------------------------------------------|
@@ -284,6 +325,7 @@ La hoja `nomina` del Excel exporta el desglose completo (`salud_empleado`,
 | GET/POST/PUT/DELETE | `/empleados[/{id}]`               | CRUD de empleados                              |
 | POST/DELETE | `/empleados/{id}/estudios[/{id}]`          | Formación académica                            |
 | POST/DELETE | `/empleados/{id}/experiencia[/{id}]`       | Experiencia laboral                            |
+| GET    | `/empleados/{id}/certificado-laboral`          | Certificado laboral en PDF (`?incluir_salario=`)|
 | GET    | `/empleados/cumpleanos`                        | Próximos cumpleaños (parámetro `dias`)         |
 | GET/POST/PUT/DELETE | `/proyectos[/{id}]`               | CRUD de proyectos                              |
 | GET/POST/PUT/DELETE | `/participaciones[/{id}]`         | Asignación empleado-proyecto (valida ≤ 100%)   |
@@ -298,7 +340,7 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 8. Notas de diseño
+## 9. Notas de diseño
 
 - Paleta derivada del logo de Ecodes: verde hoja y azul acento sobre fondo
   blanco dominante, con soporte completo de modo oscuro (variables CSS para
@@ -316,7 +358,7 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 9. Publicar el sistema (Render + Vercel)
+## 10. Publicar el sistema (Render + Vercel)
 
 El backend y el frontend se publican por separado, porque son cosas distintas:
 el backend es un servidor que necesita base de datos, y el frontend son
@@ -328,7 +370,7 @@ archivos estáticos.
 > ambas cosas en su plan gratuito. Si lo intentas desplegar en Vercel tal cual,
 > falla con `FUNCTION_INVOCATION_FAILED` porque no encuentra la base de datos.
 
-### 9.1. Backend en Render
+### 10.1. Backend en Render
 
 El archivo `render.yaml` en la raíz ya describe el servicio y la base de datos,
 así que no hay que configurar nada a mano.
@@ -355,6 +397,15 @@ así que no hay que configurar nada a mano.
    Si `base_datos` trae un error, el servicio está vivo pero no alcanza la base:
    revisa `DATABASE_URL` en la pestaña Environment.
 
+> **Si el modelo cambia y la base ya existe.** SQLAlchemy crea las tablas que
+> falten, pero **no agrega columnas nuevas a tablas que ya existen**. Cuando una
+> versión trae campos nuevos (como el número de documento), la base desplegada
+> se queda sin ellos y la aplicación falla al consultarlos. Para recrearla:
+> agrega la variable `SEED_RESET=1` en la pestaña *Environment* de Render,
+> redespliega, y **quítala apenas termine** — si se queda puesta, cada
+> despliegue borrará los datos. Esto destruye lo que haya en la base, así que
+> úsalo mientras sean datos de ejemplo.
+
 > **Si alguna vez quieres volver al estado inicial**, ejecuta el seed sin el
 > parámetro: `python -m app.seed`. Esa forma hace `drop_all()` — **borra todas
 > las tablas** y las recrea con los datos de ejemplo. Úsala solo a propósito y
@@ -362,7 +413,7 @@ así que no hay que configurar nada a mano.
 
 La documentación interactiva de la API queda en `https://TU-SERVICIO.onrender.com/docs`.
 
-### 9.2. Frontend en Vercel
+### 10.2. Frontend en Vercel
 
 1. Abre `frontend/js/config.js` y pega la URL que te dio Render:
 
@@ -397,7 +448,7 @@ El `CORS` ya está resuelto: `render.yaml` define
 definitivo como las URLs de vista previa que Vercel genera en cada despliegue.
 Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 
-### 9.3. Cosas que conviene saber del plan gratuito
+### 10.3. Cosas que conviene saber del plan gratuito
 
 | | |
 |---|---|
@@ -405,7 +456,7 @@ Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 | **La base de datos caduca** | Las bases PostgreSQL gratuitas de Render expiran a los 30 días. Para un proyecto de tesis alcanza, pero anótalo. |
 | **Las contraseñas del seed son públicas** | `th / th12345` y `admin / admin12345` están en el repositorio. Sirven para la demo; si el sistema llegara a manejar datos reales de empleados, cámbialas antes. |
 
-### 9.4. Otras opciones
+### 10.4. Otras opciones
 
 - **Backend**: cualquier host compatible con ASGI (Uvicorn/Gunicorn) —
   Railway, Fly.io, un VPS con Docker, etc. Solo hay que configurar

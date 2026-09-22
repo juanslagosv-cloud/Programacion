@@ -47,6 +47,13 @@ class TipoCargo(str, enum.Enum):
     administrativo = "Administrativo"
 
 
+class TipoDocumento(str, enum.Enum):
+    cedula_ciudadania = "CC"
+    cedula_extranjeria = "CE"
+    pasaporte = "PA"
+    permiso_especial = "PEP"
+
+
 class EstadoEmpleado(str, enum.Enum):
     activo = "Activo"
     inactivo = "Inactivo"
@@ -96,6 +103,12 @@ class Empleado(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre_completo: Mapped[str] = mapped_column(String(200), index=True)
+    tipo_documento: Mapped[TipoDocumento] = mapped_column(
+        Enum(TipoDocumento, name="tipo_documento"), default=TipoDocumento.cedula_ciudadania
+    )
+    # Único: no puede haber dos personas con el mismo documento. Es nullable
+    # porque en bases ya existentes hay registros previos sin el dato.
+    numero_documento: Mapped[str | None] = mapped_column(String(30), unique=True, index=True, nullable=True)
     foto_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     genero: Mapped[Genero] = mapped_column(Enum(Genero, name="genero"))
     fecha_nacimiento: Mapped[date] = mapped_column(Date)
