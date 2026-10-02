@@ -49,6 +49,15 @@ function formatDate(value) {
   return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function todayIso() {
+  // Fecha local en formato AAAA-MM-DD; toISOString() usa UTC y puede
+  // adelantar o atrasar un día según la hora.
+  const d = new Date();
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mes}-${dia}`;
+}
+
 function formatMonthPeriodo(periodo) {
   if (!periodo) return "—";
   const [y, m] = periodo.split("-");

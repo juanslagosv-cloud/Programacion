@@ -164,13 +164,20 @@ def _encabezado(estilos, empresa: Empresa) -> list:
     return [tabla, Spacer(1, 0.9 * cm)]
 
 
-def generar_certificado_laboral(empleado: Empleado, incluir_salario: bool = False) -> BytesIO:
+def generar_certificado_laboral(
+    empleado: Empleado, incluir_salario: bool = False, fecha_expedicion: date | None = None
+) -> BytesIO:
     """Arma el PDF del certificado y lo devuelve en memoria.
 
     Requiere que ``empleado.empresa`` esté cargada y no sea None: el
     endpoint que llama a esto valida esa condición antes (ver
     routers/empleados.py), porque sin saber a qué empresa pertenece la
     persona no hay NIT ni razón social que imprimir.
+
+    ``fecha_expedicion`` es la fecha que se imprime como "se expide en...
+    a los X días del mes de Y"; por defecto es hoy, pero quien pide el
+    certificado puede necesitar que lleve una fecha anterior (por ejemplo,
+    para que coincida con la fecha de una solicitud ya radicada).
     """
     if empleado.empresa is None:
         raise ValueError(
@@ -178,7 +185,7 @@ def generar_certificado_laboral(empleado: Empleado, incluir_salario: bool = Fals
         )
     empresa = empleado.empresa
 
-    hoy = date.today()
+    hoy = fecha_expedicion or date.today()
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=letter,

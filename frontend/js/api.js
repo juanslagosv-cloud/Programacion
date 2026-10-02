@@ -79,10 +79,12 @@ const api = {
   put: (path, body) => apiFetch(path, { method: "PUT", body: JSON.stringify(body) }),
   del: (path) => apiFetch(path, { method: "DELETE" }),
 
-  async descargarCertificado(empleadoId, incluirSalario) {
+  async descargarCertificado(empleadoId, incluirSalario, fechaExpedicion) {
     const token = getToken();
+    const params = new URLSearchParams({ incluir_salario: incluirSalario });
+    if (fechaExpedicion) params.set("fecha_expedicion", fechaExpedicion);
     const res = await fetch(
-      `${API_BASE}/empleados/${empleadoId}/certificado-laboral?incluir_salario=${incluirSalario}`,
+      `${API_BASE}/empleados/${empleadoId}/certificado-laboral?${params.toString()}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!res.ok) {

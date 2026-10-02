@@ -347,6 +347,10 @@
           <p class="text-muted" style="font-size:12.5px;margin-bottom:10px;">
             Certificado laboral en PDF con el nombre, el documento, el cargo y la fecha de ingreso.
           </p>
+          <div class="field" style="max-width:220px;margin-bottom:10px;">
+            <label>Fecha de expedición</label>
+            <input type="date" id="cert-fecha" value="${todayIso()}" min="${e.fecha_ingreso || ""}" max="${todayIso()}">
+          </div>
           <div class="flex gap-8" style="flex-wrap:wrap;">
             <button class="btn btn-secondary btn-sm" data-certificado="sin">Sin salario</button>
             <button class="btn btn-secondary btn-sm" data-certificado="con">Con salario</button>
@@ -475,11 +479,12 @@
     document.querySelectorAll("[data-certificado]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const conSalario = btn.dataset.certificado === "con";
+        const fechaExpedicion = document.getElementById("cert-fecha").value || undefined;
         const textoOriginal = btn.textContent;
         btn.disabled = true;
         btn.textContent = "Generando…";
         try {
-          await api.descargarCertificado(e.id, conSalario);
+          await api.descargarCertificado(e.id, conSalario, fechaExpedicion);
           showToast("Certificado generado");
         } catch (err) {
           handleApiError(err);

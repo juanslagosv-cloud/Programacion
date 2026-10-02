@@ -270,6 +270,10 @@ def certificado_laboral(
         default=False,
         description="Si es verdadero, el certificado indica el salario del último período de nómina registrado.",
     ),
+    fecha_expedicion: date | None = Query(
+        default=None,
+        description="Fecha que se imprime como fecha de expedición. Por defecto, hoy.",
+    ),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -299,7 +303,24 @@ def certificado_laboral(
             ),
         )
 
-    pdf = generar_certificado_laboral(empleado, incluir_salario=incluir_salario)
+    if fecha_expedicion is not None:
+        if fecha_expedicion > date.today():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="La fecha de expedición no puede ser futura.",
+            )
+        if fecha_expedicion < empleado.fecha_ingreso:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"La fecha de expedición no puede ser anterior al ingreso de "
+                    f"{empleado.nombre_completo} ({empleado.fecha_ingreso.isoformat()})."
+                ),
+            )
+
+    pdf = generar_certificado_laboral(
+        empleado, incluir_salario=incluir_salario, fecha_expedicion=fecha_expedicion
+    )
 
     # Nombre de archivo legible: "certificado_laboral_maria_lopez.pdf"
     base = unicodedata.normalize("NFKD", empleado.nombre_completo)

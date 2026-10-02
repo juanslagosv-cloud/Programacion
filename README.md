@@ -317,9 +317,14 @@ La hoja `nomina` del Excel exporta el desglose completo (`salud_empleado`,
 ## 8. Certificado laboral en PDF
 
 Desde la ficha de cada empleado (panel lateral, sección **Documentos**) se
-genera un certificado laboral en PDF con el logo de Ecodes, listo para firmar
-y entregar. Hay dos botones, porque es lo que suele pedirse:
+genera un certificado laboral en PDF con el logo y los datos de SU empresa
+(Ecodes, Envsol, u otra — ver sección 2), listo para firmar y entregar. Antes
+de generarlo se elige:
 
+- **Fecha de expedición** — la fecha que queda impresa en "se expide en...".
+  Por defecto es hoy, pero se puede cambiar a una fecha anterior (por ejemplo,
+  para que coincida con la fecha de una solicitud ya radicada). No puede ser
+  futura ni anterior a la fecha de ingreso de la persona.
 - **Sin salario** — para trámites donde solo hace falta acreditar el vínculo.
 - **Con salario** — toma el salario base del último período de nómina
   registrado y lo imprime en números y en letras, como se acostumbra.
@@ -331,21 +336,14 @@ pasado y agrega la fecha de retiro, que se toma de la novedad de tipo
 
 ### 8.1. Datos de la empresa y de quien firma
 
-El sistema **no se inventa** el NIT ni el nombre de quien firma. Esos datos se
-configuran por variables de entorno (en Render, pestaña *Environment*; en
-local, el archivo `.env`):
+El sistema **no se inventa** el NIT ni el nombre de quien firma: esos datos
+salen de la empresa asignada al empleado, administrada desde Empleados >
+Empresas (ver sección 2), no de variables de entorno. Si la persona no tiene
+una empresa asignada, el sistema avisa y no genera el certificado hasta que
+se le asigne una.
 
-| Variable | Para qué sirve |
-|----------|----------------|
-| `EMPRESA_NOMBRE` | Razón social que encabeza el certificado |
-| `EMPRESA_NIT` | NIT de la empresa |
-| `EMPRESA_CIUDAD` | Ciudad de expedición |
-| `EMPRESA_DIRECCION`, `EMPRESA_TELEFONO`, `EMPRESA_CORREO` | Membrete (opcionales) |
-| `FIRMANTE_NOMBRE` | Quien firma el certificado |
-| `FIRMANTE_CARGO` | Su cargo |
-
-Mientras no se configuren, el PDF sale con textos como `[NIT POR CONFIGURAR]`
-bien visibles, para que nadie lo entregue a medio llenar.
+Las variables `EMPRESA_*` y `FIRMANTE_*` del `.env` solo importan para la
+primera empresa que se crea al sembrar la base vacía (ver `.env.example`).
 
 ### 8.2. Si pides el certificado con salario y no hay nómina
 
@@ -364,7 +362,7 @@ Registra la nómina del período o genera el certificado sin salario.
 | GET/POST/PUT/DELETE | `/empleados[/{id}]`               | CRUD de empleados                              |
 | POST/DELETE | `/empleados/{id}/estudios[/{id}]`          | Formación académica                            |
 | POST/DELETE | `/empleados/{id}/experiencia[/{id}]`       | Experiencia laboral                            |
-| GET    | `/empleados/{id}/certificado-laboral`          | Certificado laboral en PDF (`?incluir_salario=`)|
+| GET    | `/empleados/{id}/certificado-laboral`          | Certificado laboral en PDF (`?incluir_salario=&fecha_expedicion=`)|
 | GET    | `/empleados/cumpleanos`                        | Próximos cumpleaños (parámetro `dias`)         |
 | GET/POST/PUT/DELETE | `/proyectos[/{id}]`               | CRUD de proyectos                              |
 | GET/POST/PUT/DELETE | `/participaciones[/{id}]`         | Asignación empleado-proyecto (valida ≤ 100%)   |
