@@ -133,6 +133,32 @@ class TipoModificacionContrato(str, enum.Enum):
 
 
 # ---------------------------------------------------------------------------
+# Solicitudes (flujo de aprobación empleado → jefe → Talento Humano)
+# ---------------------------------------------------------------------------
+
+class TipoSolicitud(str, enum.Enum):
+    vacaciones = "Vacaciones"
+    incapacidad = "Incapacidad"
+    permiso = "Permiso"
+    licencia_remunerada = "Licencia remunerada"
+    licencia_no_remunerada = "Licencia no remunerada"
+    calamidad = "Calamidad doméstica"
+    trabajo_remoto = "Trabajo remoto"
+    horas_extras = "Horas extras"
+    ausencia = "Ausencia"
+    suspension = "Suspensión"
+    cambio_salarial = "Cambio salarial"
+    cambio_cargo = "Cambio de cargo"
+    cambio_proyecto = "Cambio de proyecto"
+
+
+class EstadoAprobacion(str, enum.Enum):
+    pendiente = "Pendiente"
+    aprobado = "Aprobado"
+    rechazado = "Rechazado"
+
+
+# ---------------------------------------------------------------------------
 # Usuarios (autenticación)
 # ---------------------------------------------------------------------------
 
@@ -264,6 +290,12 @@ class Empleado(Base):
         order_by="Contrato.fecha_inicio.desc()",
         foreign_keys="Contrato.empleado_id",
     )
+    solicitudes: Mapped[list["Solicitud"]] = relationship(
+        back_populates="empleado",
+        cascade="all, delete-orphan",
+        order_by="Solicitud.fecha_solicitud.desc()",
+        foreign_keys="Solicitud.empleado_id",
+    )
     empresa: Mapped["Empresa | None"] = relationship(back_populates="empleados")
     jefe_inmediato: Mapped["Empleado | None"] = relationship(
         remote_side=[id], foreign_keys=[jefe_inmediato_id]
@@ -359,6 +391,57 @@ class ModificacionContrato(Base):
     nueva_fecha_fin: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     contrato: Mapped["Contrato"] = relationship(back_populates="modificaciones")
+
+
+class Solicitud(Base):
+    """Una solicitud del empleado (vacaciones, permisos, cambios, etc.) con un
+    flujo de dos pasos: primero la revisa el jefe inmediato, y solo si la
+    aprueba pasa a Talento Humano para la decisión final. Si el jefe la
+    rechaza, ahí termina — Talento Humano nunca llega a verla.
+
+    El sistema no tiene cuentas de usuario por empleado (todo lo registra
+    Talento Humano, igual que las demás pantallas), así que esto es el
+    registro de las dos decisiones, no un portal de autoservicio.
+    """
+
+    __tablename__ = "solicitudes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empleado_id: Mapped[int] = mapped_column(ForeignKey("empleados.id", ondelete="CASCADE"), index=True)
+    tipo: Mapped[TipoSolicitud] = mapped_column(Enum(TipoSolicitud, name="tipo_solicitud"))
+    fecha_solicitud: Mapped[date] = mapped_column(Date, server_default=func.current_date())
+    fecha_inicio: Mapped[date] = mapped_column(Date)
+    # Nula para tipos de un solo día (horas extras, ausencia puntual).
+    fecha_fin: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Solo aplica al tipo "Horas extras".
+    horas: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    motivo: Mapped[str] = mapped_column(Text)
+    # Texto libre con el valor propuesto: el nuevo salario o el nuevo cargo,
+    # según el tipo. No se valida contra un formato fijo porque el salario
+    # puede venir acompañado de una nota ("de $X a $Y").
+    valor_propuesto: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Solo aplica a "Cambio de proyecto".
+    proyecto_propuesto_id: Mapped[int | None] = mapped_column(
+        ForeignKey("proyectos.id", ondelete="SET NULL"), nullable=True
+    )
+
+    estado_jefe: Mapped[EstadoAprobacion] = mapped_column(
+        Enum(EstadoAprobacion, name="estado_aprobacion_jefe"), default=EstadoAprobacion.pendiente
+    )
+    jefe_comentario: Mapped[str | None] = mapped_column(Text, nullable=True)
+    jefe_fecha_respuesta: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    # Talento Humano solo puede decidir después de que el jefe aprueba.
+    estado_th: Mapped[EstadoAprobacion] = mapped_column(
+        Enum(EstadoAprobacion, name="estado_aprobacion_th"), default=EstadoAprobacion.pendiente
+    )
+    th_comentario: Mapped[str | None] = mapped_column(Text, nullable=True)
+    th_fecha_respuesta: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    empleado: Mapped["Empleado"] = relationship(back_populates="solicitudes")
+    proyecto_propuesto: Mapped["Proyecto | None"] = relationship()
 
 
 # ---------------------------------------------------------------------------

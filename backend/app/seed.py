@@ -14,6 +14,7 @@ from app.models import (
     Contrato,
     Empleado,
     Empresa,
+    EstadoAprobacion,
     EstadoCivil,
     EstadoContrato,
     EstadoEmpleado,
@@ -31,12 +32,14 @@ from app.models import (
     PeriodicidadPago,
     Proyecto,
     RolUsuario,
+    Solicitud,
     TipoCargo,
     TipoContrato,
     TipoCuenta,
     TipoDocumento,
     TipoModificacionContrato,
     TipoNovedad,
+    TipoSolicitud,
     Usuario,
 )
 from app.security import hash_password
@@ -648,6 +651,118 @@ def run():
                     fecha=dias_desde_hoy(-2),
                     detalle="Cambio de horario administrativo temporal.",
                     procesada=False,
+                ),
+            ]
+        )
+
+        # -------------------------------------------------------------
+        # Solicitudes (flujo empleado → jefe → Talento Humano)
+        #
+        # Una de cada tipo, repartidas en los tres estados posibles, para que
+        # la pantalla de Solicitudes no se vea con una sola fila. Pedro no
+        # tiene jefe inmediato (es el Gerente General), así que su solicitud
+        # muestra cómo se ve ese caso: sin jefe asignado para la primera etapa.
+        # -------------------------------------------------------------
+        db.add_all(
+            [
+                Solicitud(
+                    empleado=e_juan, tipo=TipoSolicitud.vacaciones,
+                    fecha_solicitud=dias_desde_hoy(-3), fecha_inicio=dias_desde_hoy(15), fecha_fin=dias_desde_hoy(19),
+                    motivo="Vacaciones familiares de fin de año.",
+                ),
+                Solicitud(
+                    empleado=e_laura, tipo=TipoSolicitud.permiso,
+                    fecha_solicitud=dias_desde_hoy(-6), fecha_inicio=dias_desde_hoy(-1), fecha_fin=dias_desde_hoy(-1),
+                    motivo="Cita médica personal.",
+                    estado_jefe=EstadoAprobacion.aprobado, jefe_comentario="Aprobado, sin inconveniente.",
+                    jefe_fecha_respuesta=dias_desde_hoy(-5),
+                ),
+                Solicitud(
+                    empleado=e_jorge, tipo=TipoSolicitud.incapacidad,
+                    fecha_solicitud=dias_desde_hoy(-5), fecha_inicio=dias_desde_hoy(-5), fecha_fin=dias_desde_hoy(-3),
+                    motivo="Incapacidad médica por accidente laboral leve en campo.",
+                    estado_jefe=EstadoAprobacion.aprobado, jefe_comentario="Confirmado con el parte médico.",
+                    jefe_fecha_respuesta=dias_desde_hoy(-4),
+                    estado_th=EstadoAprobacion.aprobado, th_comentario="Incapacidad radicada ante la EPS.",
+                    th_fecha_respuesta=dias_desde_hoy(-3),
+                ),
+                Solicitud(
+                    empleado=e_diana, tipo=TipoSolicitud.horas_extras,
+                    fecha_solicitud=dias_desde_hoy(-8), fecha_inicio=dias_desde_hoy(-7), horas=4,
+                    motivo="Jornada adicional para la entrega del informe de compensación forestal.",
+                    estado_jefe=EstadoAprobacion.aprobado, jefe_comentario="Aprobado, entrega urgente.",
+                    jefe_fecha_respuesta=dias_desde_hoy(-7),
+                    estado_th=EstadoAprobacion.aprobado, th_comentario="Se liquidan en la próxima nómina.",
+                    th_fecha_respuesta=dias_desde_hoy(-6),
+                ),
+                Solicitud(
+                    empleado=e_carlos, tipo=TipoSolicitud.trabajo_remoto,
+                    fecha_solicitud=dias_desde_hoy(-10), fecha_inicio=dias_desde_hoy(5), fecha_fin=dias_desde_hoy(9),
+                    motivo="Trabajo remoto mientras se tramitan los permisos de campo en Lima.",
+                    estado_jefe=EstadoAprobacion.rechazado,
+                    jefe_comentario="Se requiere presencia en campo para el monitoreo de esta semana.",
+                    jefe_fecha_respuesta=dias_desde_hoy(-8),
+                ),
+                Solicitud(
+                    empleado=e_valentina, tipo=TipoSolicitud.licencia_no_remunerada,
+                    fecha_solicitud=dias_desde_hoy(-4), fecha_inicio=dias_desde_hoy(20), fecha_fin=dias_desde_hoy(34),
+                    motivo="Viaje familiar por asuntos personales.",
+                ),
+                Solicitud(
+                    empleado=e_natalia, tipo=TipoSolicitud.cambio_proyecto,
+                    fecha_solicitud=dias_desde_hoy(-12), fecha_inicio=dias_desde_hoy(7), proyecto_propuesto=p3,
+                    motivo="Interés en sumarse al equipo de monitoreo de biodiversidad.",
+                    estado_jefe=EstadoAprobacion.aprobado, jefe_comentario="De acuerdo, le conviene a su desarrollo.",
+                    jefe_fecha_respuesta=dias_desde_hoy(-10),
+                ),
+                Solicitud(
+                    empleado=e_paula, tipo=TipoSolicitud.cambio_salarial,
+                    fecha_solicitud=dias_desde_hoy(-20), fecha_inicio=dias_desde_hoy(-20),
+                    valor_propuesto="De $4.200.000 a $4.800.000 mensuales",
+                    motivo="Ajuste salarial por asunción de nuevas responsabilidades en nómina.",
+                    estado_jefe=EstadoAprobacion.aprobado, jefe_comentario="Justificado por la carga adicional.",
+                    jefe_fecha_respuesta=dias_desde_hoy(-18),
+                    estado_th=EstadoAprobacion.rechazado,
+                    th_comentario="Se revisará en el próximo ciclo de evaluación de desempeño.",
+                    th_fecha_respuesta=dias_desde_hoy(-15),
+                ),
+                Solicitud(
+                    empleado=e_sofia, tipo=TipoSolicitud.ausencia,
+                    fecha_solicitud=dias_desde_hoy(-2), fecha_inicio=dias_desde_hoy(-1), fecha_fin=dias_desde_hoy(-1),
+                    motivo="Ausencia por trámite personal urgente.",
+                ),
+                Solicitud(
+                    empleado=e_ricardo, tipo=TipoSolicitud.suspension,
+                    fecha_solicitud=dias_desde_hoy(-40), fecha_inicio=dias_desde_hoy(-35), fecha_fin=dias_desde_hoy(-33),
+                    motivo="Suspensión disciplinaria por incumplimiento del protocolo de reporte.",
+                    estado_jefe=EstadoAprobacion.aprobado, jefe_comentario="Procede según el reglamento interno.",
+                    jefe_fecha_respuesta=dias_desde_hoy(-38),
+                    estado_th=EstadoAprobacion.aprobado, th_comentario="Registrada en el expediente.",
+                    th_fecha_respuesta=dias_desde_hoy(-36),
+                ),
+                Solicitud(
+                    empleado=e_pedro, tipo=TipoSolicitud.cambio_cargo,
+                    fecha_solicitud=dias_desde_hoy(-15), fecha_inicio=dias_desde_hoy(-15),
+                    valor_propuesto="De Gerente General a Director Ejecutivo",
+                    motivo="Formalización del cargo ante la junta directiva.",
+                    # Pedro no tiene jefe inmediato: la solicitud queda a la espera
+                    # de que alguien decida esa primera etapa (ver sección 4 del README).
+                ),
+                Solicitud(
+                    empleado=e_esteban, tipo=TipoSolicitud.calamidad,
+                    fecha_solicitud=dias_desde_hoy(-60), fecha_inicio=dias_desde_hoy(-58), fecha_fin=dias_desde_hoy(-56),
+                    motivo="Calamidad doméstica por emergencia familiar.",
+                    estado_jefe=EstadoAprobacion.aprobado, jefe_comentario="Aprobado, que atienda la emergencia.",
+                    jefe_fecha_respuesta=dias_desde_hoy(-59),
+                    estado_th=EstadoAprobacion.aprobado, th_comentario="Registrada la calamidad.",
+                    th_fecha_respuesta=dias_desde_hoy(-57),
+                ),
+                Solicitud(
+                    empleado=e_maria, tipo=TipoSolicitud.licencia_remunerada,
+                    fecha_solicitud=dias_desde_hoy(-9), fecha_inicio=dias_desde_hoy(3), fecha_fin=dias_desde_hoy(5),
+                    motivo="Licencia remunerada por capacitación externa en gestión humana.",
+                    estado_jefe=EstadoAprobacion.aprobado, jefe_comentario="Aprobado, buena oportunidad de formación.",
+                    jefe_fecha_respuesta=dias_desde_hoy(-7),
                 ),
             ]
         )

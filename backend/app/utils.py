@@ -2,7 +2,16 @@ import calendar
 from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 
-from app.models import EstadoContrato, Empleado, NivelRiesgoArl, Novedad, PeriodicidadPago, Proyecto, TipoNovedad
+from app.models import (
+    EstadoAprobacion,
+    EstadoContrato,
+    Empleado,
+    NivelRiesgoArl,
+    Novedad,
+    PeriodicidadPago,
+    Proyecto,
+    TipoNovedad,
+)
 
 # En nómina el mes siempre se cuenta como 30 días, sin importar los días
 # calendario reales: una quincena son 15 días y un mes completo 30.
@@ -299,6 +308,45 @@ def contrato_vencido(contrato) -> bool:
 
 def porcentaje_total_empleado(empleado: Empleado) -> float:
     return round(sum(float(p.porcentaje) for p in empleado.participaciones), 2)
+
+
+def dias_solicitados(solicitud) -> int | None:
+    """Días calendario que cubre la solicitud (inclusive). None si no tiene
+    fecha final (por ejemplo, horas extras de un solo día sin rango)."""
+    if solicitud.fecha_fin is None:
+        return None
+    return (solicitud.fecha_fin - solicitud.fecha_inicio).days + 1
+
+
+def estado_general_solicitud(solicitud) -> str:
+    """Resume las dos decisiones (jefe y Talento Humano) en una sola
+    etiqueta para la tabla. El jefe decide primero; si rechaza, ahí termina
+    y Talento Humano ni siquiera llega a verla."""
+    if solicitud.estado_jefe == EstadoAprobacion.rechazado:
+        return "Rechazada por el jefe"
+    if solicitud.estado_jefe == EstadoAprobacion.pendiente:
+        return "Pendiente del jefe"
+    if solicitud.estado_th == EstadoAprobacion.rechazado:
+        return "Rechazada por Talento Humano"
+    if solicitud.estado_th == EstadoAprobacion.pendiente:
+        return "Pendiente de Talento Humano"
+    return "Aprobada"
+
+
+def aplicar_aprobacion_vacaciones(solicitud) -> None:
+    """Único efecto automático del flujo de solicitudes: cuando Talento
+    Humano aprueba unas vacaciones, se descuentan los días del saldo
+    pendiente y se actualiza la fecha de la última toma. Los demás tipos
+    (permisos, cambios de cargo o salario, etc.) quedan solo como el
+    registro de la decisión — aplicarlos en el contrato o en la ficha sigue
+    siendo una acción aparte de Talento Humano, a propósito: no se edita un
+    contrato ni una nómina solo porque se aprobó una solicitud."""
+    dias = dias_solicitados(solicitud)
+    if dias is None:
+        return
+    empleado = solicitud.empleado
+    empleado.vacaciones_dias_pendientes = max(0, empleado.vacaciones_dias_pendientes - dias)
+    empleado.vacaciones_ultima_toma = solicitud.fecha_inicio
 
 
 def costo_prorrateado_empleado(empleado: Empleado) -> float:

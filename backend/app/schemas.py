@@ -4,6 +4,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models import (
+    EstadoAprobacion,
     EstadoCivil,
     EstadoContrato,
     EstadoEmpleado,
@@ -20,6 +21,7 @@ from app.models import (
     TipoDocumento,
     TipoModificacionContrato,
     TipoNovedad,
+    TipoSolicitud,
 )
 
 
@@ -346,6 +348,49 @@ class NovedadOut(NovedadBase):
     procesada: bool
     empleado_nombre: Optional[str] = None
     proyecto_nombre: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Solicitudes (flujo empleado → jefe → Talento Humano)
+# ---------------------------------------------------------------------------
+
+class SolicitudBase(BaseModel):
+    tipo: TipoSolicitud
+    fecha_inicio: date
+    fecha_fin: Optional[date] = None
+    horas: Optional[float] = Field(default=None, ge=0)
+    motivo: str
+    valor_propuesto: Optional[str] = Field(default=None, max_length=200)
+    proyecto_propuesto_id: Optional[int] = None
+
+
+class SolicitudCreate(SolicitudBase):
+    empleado_id: int
+
+
+class SolicitudDecision(BaseModel):
+    aprobar: bool
+    comentario: Optional[str] = None
+
+
+class SolicitudOut(SolicitudBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    empleado_id: int
+    empleado_nombre: Optional[str] = None
+    jefe_inmediato_nombre: Optional[str] = None
+    proyecto_propuesto_nombre: Optional[str] = None
+    fecha_solicitud: date
+    estado_jefe: EstadoAprobacion
+    jefe_comentario: Optional[str] = None
+    jefe_fecha_respuesta: Optional[date] = None
+    estado_th: EstadoAprobacion
+    th_comentario: Optional[str] = None
+    th_fecha_respuesta: Optional[date] = None
+    # Resumen de una sola palabra para pintar en la tabla, calculado a partir
+    # de estado_jefe/estado_th (ver utils.estado_general_solicitud).
+    estado_general: str = "Pendiente del jefe"
+    dias_solicitados: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------

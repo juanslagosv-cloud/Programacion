@@ -18,8 +18,9 @@ from app.models import (
     Novedad,
     Participacion,
     Proyecto,
+    Solicitud,
 )
-from app.utils import duracion_contrato
+from app.utils import dias_solicitados, duracion_contrato, estado_general_solicitud
 
 router = APIRouter(prefix="/exportar", tags=["Exportar"])
 
@@ -219,6 +220,36 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
         ]
     )
 
+    solicitudes = db.query(Solicitud).all()
+    df_solicitudes = pd.DataFrame(
+        [
+            {
+                "id": s.id,
+                "empleado_id": s.empleado_id,
+                "empleado_nombre": s.empleado.nombre_completo,
+                "tipo": s.tipo.value,
+                "fecha_solicitud": s.fecha_solicitud,
+                "fecha_inicio": s.fecha_inicio,
+                "fecha_fin": s.fecha_fin,
+                "dias_solicitados": dias_solicitados(s),
+                "horas": float(s.horas) if s.horas is not None else None,
+                "motivo": s.motivo,
+                "valor_propuesto": s.valor_propuesto,
+                "proyecto_propuesto_id": s.proyecto_propuesto_id,
+                "proyecto_propuesto_nombre": s.proyecto_propuesto.nombre if s.proyecto_propuesto else None,
+                "jefe_inmediato_nombre": s.empleado.jefe_inmediato.nombre_completo if s.empleado.jefe_inmediato else None,
+                "estado_jefe": s.estado_jefe.value,
+                "jefe_comentario": s.jefe_comentario,
+                "jefe_fecha_respuesta": s.jefe_fecha_respuesta,
+                "estado_th": s.estado_th.value,
+                "th_comentario": s.th_comentario,
+                "th_fecha_respuesta": s.th_fecha_respuesta,
+                "estado_general": estado_general_solicitud(s),
+            }
+            for s in solicitudes
+        ]
+    )
+
     empresas = db.query(Empresa).all()
     df_empresas = pd.DataFrame(
         [
@@ -247,6 +278,7 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
         df_modificaciones.to_excel(writer, sheet_name="modificaciones_contrato", index=False)
         df_nomina.to_excel(writer, sheet_name="nomina", index=False)
         df_novedades.to_excel(writer, sheet_name="novedades", index=False)
+        df_solicitudes.to_excel(writer, sheet_name="solicitudes", index=False)
 
     buffer.seek(0)
     headers = {"Content-Disposition": "attachment; filename=ecodes_talento_humano.xlsx"}

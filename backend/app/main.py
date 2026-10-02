@@ -19,6 +19,7 @@ from app.routers import (
     novedades,
     participaciones,
     proyectos,
+    solicitudes,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ app.include_router(contratos.router)
 app.include_router(proyectos.router)
 app.include_router(participaciones.router)
 app.include_router(novedades.router)
+app.include_router(solicitudes.router)
 app.include_router(nomina.router)
 app.include_router(alertas.router)
 app.include_router(exportar.router)
