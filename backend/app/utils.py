@@ -2,7 +2,7 @@ import calendar
 from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 
-from app.models import Empleado, Novedad, PeriodicidadPago, Proyecto, TipoNovedad
+from app.models import Empleado, NivelRiesgoArl, Novedad, PeriodicidadPago, Proyecto, TipoNovedad
 
 # En nómina el mes siempre se cuenta como 30 días, sin importar los días
 # calendario reales: una quincena son 15 días y un mes completo 30.
@@ -34,10 +34,16 @@ TASA_VACACIONES = 15 / 360  # 15 días hábiles de descanso pago al año
 # --- Aportes del empleador ---
 TASA_PENSION_EMPLEADOR = 0.12
 
-# La ARL la paga 100% el empleador y su tasa depende de la clase de riesgo del
-# cargo. Se asume riesgo V para roles de campo y riesgo I para oficina.
-TASA_ARL_RIESGO_I = 0.00522
-TASA_ARL_RIESGO_V = 0.06960
+# La ARL la paga 100% el empleador y su tasa depende de la clase de riesgo
+# que se le haya registrado a la persona (campo nivel_riesgo_arl). Son las
+# tasas estándar del Decreto 1607 de 2002.
+TASAS_RIESGO_ARL = {
+    NivelRiesgoArl.i: 0.00522,
+    NivelRiesgoArl.ii: 0.01044,
+    NivelRiesgoArl.iii: 0.02436,
+    NivelRiesgoArl.iv: 0.04350,
+    NivelRiesgoArl.v: 0.06960,
+}
 
 # Exonerados por la Ley 1607 de 2012 para trabajadores que devengan menos de
 # 10 SMLMV. Si Ecodes no aplica la exoneración, basta con poner aquí las tasas
@@ -70,8 +76,13 @@ def calcular_auxilio_transporte(salario_base: float, auxilio_transporte: float) 
 
 
 def tasa_arl(empleado: Empleado) -> float:
-    """Los roles de campo cotizan riesgo V; los de oficina, riesgo I."""
-    return TASA_ARL_RIESGO_V if es_rol_campo(empleado) else TASA_ARL_RIESGO_I
+    """Usa la clase de riesgo registrada en la ficha del empleado. Si no se ha
+    registrado (personas que ya existían antes de este campo), se cae de
+    vuelta a la clasificación anterior por palabras clave del cargo, para que
+    la nómina de esos registros siga calculando algo razonable."""
+    if empleado.nivel_riesgo_arl is not None:
+        return TASAS_RIESGO_ARL[empleado.nivel_riesgo_arl]
+    return TASAS_RIESGO_ARL[NivelRiesgoArl.v if es_rol_campo(empleado) else NivelRiesgoArl.i]
 
 
 def ultimo_dia_del_mes(periodo: str) -> date:

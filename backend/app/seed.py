@@ -20,12 +20,14 @@ from app.models import (
     Genero,
     Nomina,
     NivelEducativo,
+    NivelRiesgoArl,
     Novedad,
     Participacion,
     PeriodicidadPago,
     Proyecto,
     RolUsuario,
     TipoCargo,
+    TipoCuenta,
     TipoDocumento,
     TipoNovedad,
     Usuario,
@@ -376,6 +378,86 @@ def run():
         }
         for data in empleados_data:
             data["empresa"] = empresa_por_nombre[data["nombre_completo"]]
+
+        # Afiliaciones al sistema de seguridad social y datos bancarios.
+        # El nivel de riesgo de la ARL sigue el mismo criterio que antes
+        # separaba oficina de campo (ver utils.es_rol_campo), pero ahora
+        # queda registrado explícitamente en cada ficha en vez de inferirse
+        # del cargo cada vez que se liquida una nómina.
+        afiliaciones_por_nombre = {
+            "María Fernanda López Duarte": dict(
+                eps="EPS Sura", afp="Porvenir", arl="ARL Sura", caja_compensacion="Compensar",
+                fondo_cesantias="Porvenir", nivel_riesgo_arl=NivelRiesgoArl.i,
+                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345671",
+            ),
+            "Andrés Felipe Torres Gómez": dict(
+                eps="Sanitas EPS", afp="Protección", arl="Positiva ARL", caja_compensacion="Colsubsidio",
+                fondo_cesantias="Protección", nivel_riesgo_arl=NivelRiesgoArl.i,
+                tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345672",
+            ),
+            "Laura Camila Restrepo Ibáñez": dict(
+                eps="Nueva EPS", afp="Colfondos", arl="Colmena Seguros", caja_compensacion="Comfama",
+                fondo_cesantias="Colfondos", nivel_riesgo_arl=NivelRiesgoArl.iii,
+                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345673",
+            ),
+            "Juan Sebastián Vargas Peña": dict(
+                eps="Compensar EPS", afp="Porvenir", arl="ARL Sura", caja_compensacion="Comfenalco Valle",
+                fondo_cesantias="Porvenir", nivel_riesgo_arl=NivelRiesgoArl.v,
+                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345674",
+            ),
+            "Diana Marcela Sánchez Ortiz": dict(
+                eps="Salud Total EPS", afp="Protección", arl="Seguros Bolívar ARL", caja_compensacion="Compensar",
+                fondo_cesantias="Protección", nivel_riesgo_arl=NivelRiesgoArl.iii,
+                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345675",
+            ),
+            "Carlos Eduardo Ramírez Silva": dict(
+                eps="EPS Sura", afp="Colfondos", arl="Colmena Seguros", caja_compensacion="Colsubsidio",
+                fondo_cesantias="Colfondos", nivel_riesgo_arl=NivelRiesgoArl.iii,
+                tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345676",
+            ),
+            "Valentina Herrera Cuesta": dict(
+                eps="Nueva EPS", afp="Porvenir", arl="ARL Sura", caja_compensacion="Comfama",
+                fondo_cesantias="Porvenir", nivel_riesgo_arl=NivelRiesgoArl.v,
+                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345677",
+            ),
+            "Ricardo Antonio Molina Paz": dict(
+                eps="Sanitas EPS", afp="Protección", arl="Positiva ARL", caja_compensacion="Compensar",
+                fondo_cesantias="Protección", nivel_riesgo_arl=NivelRiesgoArl.i,
+                tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345678",
+            ),
+            "Paula Andrea Gil Moreno": dict(
+                eps="Famisanar EPS", afp="Colfondos", arl="ARL Sura", caja_compensacion="Colsubsidio",
+                fondo_cesantias="Colfondos", nivel_riesgo_arl=NivelRiesgoArl.i,
+                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345679",
+            ),
+            "Jorge Iván Castañeda Ruiz": dict(
+                eps="Compensar EPS", afp="Porvenir", arl="Colmena Seguros", caja_compensacion="Comfenalco Valle",
+                fondo_cesantias="Porvenir", nivel_riesgo_arl=NivelRiesgoArl.v,
+                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345680",
+            ),
+            "Natalia Andrea Peralta Fonseca": dict(
+                eps="Nueva EPS", afp="Protección", arl="Seguros Bolívar ARL", caja_compensacion="Compensar",
+                fondo_cesantias="Protección", nivel_riesgo_arl=NivelRiesgoArl.iii,
+                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345681",
+            ),
+            "Esteban Alejandro Ríos Bermúdez": dict(
+                eps="EPS Sura", afp="Colfondos", arl="ARL Sura", caja_compensacion="Comfama",
+                fondo_cesantias="Colfondos", nivel_riesgo_arl=NivelRiesgoArl.iii,
+                tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345682",
+            ),
+            "Sofía Isabel Cárdenas León": dict(
+                eps="Salud Total EPS", afp="Porvenir", arl="Positiva ARL", caja_compensacion="Colsubsidio",
+                fondo_cesantias="Porvenir", nivel_riesgo_arl=NivelRiesgoArl.i,
+                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345683",
+            ),
+            "Pedro Pablo Ospina Duque": dict(
+                eps="Sanitas EPS", afp="Protección", arl="ARL Sura", caja_compensacion="Compensar",
+                fondo_cesantias="Protección", nivel_riesgo_arl=NivelRiesgoArl.i,
+                tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345684",
+            ),
+        }
+        for data in empleados_data:
+            data.update(afiliaciones_por_nombre[data["nombre_completo"]])
 
         empleados = [Empleado(**data) for data in empleados_data]
         db.add_all(empleados)

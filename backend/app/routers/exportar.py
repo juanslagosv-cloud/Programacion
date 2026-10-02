@@ -35,6 +35,14 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
                 "periodicidad_pago": e.periodicidad_pago.value,
                 "vacaciones_ultima_toma": e.vacaciones_ultima_toma,
                 "vacaciones_dias_pendientes": e.vacaciones_dias_pendientes,
+                "tipo_cuenta": e.tipo_cuenta.value if e.tipo_cuenta else None,
+                "numero_cuenta": e.numero_cuenta,
+                "eps": e.eps,
+                "afp": e.afp,
+                "arl": e.arl,
+                "nivel_riesgo_arl": e.nivel_riesgo_arl.value if e.nivel_riesgo_arl else None,
+                "caja_compensacion": e.caja_compensacion,
+                "fondo_cesantias": e.fondo_cesantias,
             }
             for e in empleados
         ]

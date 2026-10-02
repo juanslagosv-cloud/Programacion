@@ -191,9 +191,10 @@ para que el navegador pueda llamar a la API.
 2. La pantalla de entrada es **Empleados**, con el widget de próximos
    cumpleaños (siguientes ~45 días) y la tabla filtrable de personal.
 3. Haz clic en una fila para abrir la ficha completa del empleado (panel
-   lateral): información general, formación académica, experiencia laboral,
-   proyectos asignados (con su % de dedicación), vacaciones e historial de
-   movimientos.
+   lateral): información general, afiliaciones y datos bancarios (EPS, AFP,
+   ARL y su nivel de riesgo, caja de compensación, fondo de cesantías, tipo y
+   número de cuenta), formación académica, experiencia laboral, proyectos
+   asignados (con su % de dedicación), vacaciones e historial de movimientos.
 4. En **Proyectos** puedes crear proyectos y gestionar el equipo asignado con
    su % de dedicación — la suma de participación de una persona en todos sus
    proyectos nunca puede superar el 100% (validado en frontend y backend).
@@ -248,7 +249,23 @@ embargos, etc.); salud y pensión se calculan aparte.
 | Intereses de cesantías | 1,00% | Salario + auxilio de transporte | 12% anual sobre cesantías |
 | Provisión de vacaciones | 4,17% | Salario base | 15 días hábiles al año |
 | Pensión (empleador) | 12% | Salario base | — |
-| ARL (la paga 100% el empleador) | 0,522% oficina / 6,960% campo | Salario base | Según clase de riesgo |
+| ARL (la paga 100% el empleador) | Según clase de riesgo (ver tabla) | Salario base | Campo `nivel_riesgo_arl` del empleado |
+
+**Clase de riesgo de la ARL.** Se registra en la ficha de cada empleado (sección
+"Afiliaciones y datos bancarios"), no se adivina por el cargo:
+
+| Nivel | Tasa | Ejemplos típicos |
+|-------|-----:|-------------------|
+| I | 0,522% | Trabajo de oficina |
+| II | 1,044% | Riesgo bajo |
+| III | 2,436% | Riesgo medio |
+| IV | 4,350% | Riesgo alto |
+| V | 6,960% | Trabajo de campo, forestal |
+
+Si una persona no tiene el nivel registrado (bases creadas antes de este
+campo), el cálculo cae de vuelta a clasificarla por palabras clave del cargo
+("campo", "forestal", "restauración", "monitoreo" → riesgo V; el resto →
+riesgo I), para no dejar de calcular algo razonable.
 
 **Bases de cálculo** (es donde se equivocan la mayoría de las hojas de Excel):
 
@@ -256,13 +273,20 @@ embargos, etc.); salud y pensión se calculan aparte.
   pero **no** para vacaciones ni para seguridad social.
 - El auxilio de movilidad no entra en ninguna base.
 
-> **Dos supuestos que conviene confirmar con contabilidad:**
-> 1. **Clase de riesgo de la ARL**: se asume riesgo V para cargos de campo y
->    riesgo I para oficina. Se ajusta en `TASA_ARL_RIESGO_*`.
-> 2. **Exoneración de la Ley 1607 de 2012**: salud del empleador (8,5%), caja de
->    compensación (4%), SENA (2%) e ICBF (3%) están en `0.0`. Si Ecodes no está
->    exonerada, basta con poner las tasas reales en esas constantes y el cálculo
->    las incluye automáticamente.
+> **Exoneración de la Ley 1607 de 2012**: salud del empleador (8,5%), caja de
+> compensación (4%), SENA (2%) e ICBF (3%) están en `0.0`. Si Ecodes no está
+> exonerada, basta con poner las tasas reales en esas constantes
+> (`TASA_SALUD_EMPLEADOR`, etc. en `backend/app/utils.py`) y el cálculo las
+> incluye automáticamente.
+
+### 7.3.1. Afiliaciones y datos bancarios
+
+Además de lo que entra en el cálculo de nómina, la ficha del empleado guarda
+los datos que Contabilidad necesita para pagarle y afiliarlo: EPS, AFP,
+ARL (aseguradora), caja de compensación, fondo de cesantías, tipo y número de
+cuenta. Son campos de texto libre (no hay una lista cerrada de entidades,
+porque cambian y varían según el país), opcionales para no bloquear el
+registro de alguien mientras se termina de recolectar su información.
 
 ### 7.4. Periodicidad de pago: mensual y quincenal
 

@@ -64,6 +64,22 @@ class PeriodicidadPago(str, enum.Enum):
     quincenal = "Quincenal"  # se paga el 15 y el último día del mes
 
 
+class TipoCuenta(str, enum.Enum):
+    ahorros = "Ahorros"
+    corriente = "Corriente"
+
+
+class NivelRiesgoArl(str, enum.Enum):
+    """Clase de riesgo de la ARL (Decreto 1607 de 2002), de la que depende la
+    tasa que paga el empleador. Ver TASAS_RIESGO_ARL en utils.py."""
+
+    i = "I"
+    ii = "II"
+    iii = "III"
+    iv = "IV"
+    v = "V"
+
+
 class EstadoProyecto(str, enum.Enum):
     activo = "Activo"
     cierre = "Cierre"
@@ -158,6 +174,23 @@ class Empleado(Base):
     )
     vacaciones_ultima_toma: Mapped[date | None] = mapped_column(Date, nullable=True)
     vacaciones_dias_pendientes: Mapped[int] = mapped_column(default=0)
+
+    # Datos bancarios y de afiliación al sistema de seguridad social. Son
+    # nullable por el mismo motivo que numero_documento: en una base que ya
+    # tenía empleados antes de este cambio, esos registros no traen el dato.
+    tipo_cuenta: Mapped[TipoCuenta | None] = mapped_column(Enum(TipoCuenta, name="tipo_cuenta"), nullable=True)
+    numero_cuenta: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    eps: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    afp: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    arl: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    caja_compensacion: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    fondo_cesantias: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # De esto depende la tasa de ARL que paga el empleador (ver utils.py). Si
+    # no se registra, el cálculo cae de vuelta a la clasificación por cargo.
+    nivel_riesgo_arl: Mapped[NivelRiesgoArl | None] = mapped_column(
+        Enum(NivelRiesgoArl, name="nivel_riesgo_arl"), nullable=True
+    )
+
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     estudios: Mapped[list["Estudio"]] = relationship(

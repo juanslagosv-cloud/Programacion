@@ -232,6 +232,20 @@
         </div>
 
         <div class="panel-section">
+          <div class="panel-section-title">Afiliaciones y datos bancarios</div>
+          <div class="info-grid">
+            <div class="info-item"><div class="label">EPS</div><div class="value">${escapeHtml(e.eps) || "—"}</div></div>
+            <div class="info-item"><div class="label">AFP</div><div class="value">${escapeHtml(e.afp) || "—"}</div></div>
+            <div class="info-item"><div class="label">ARL</div><div class="value">${escapeHtml(e.arl) || "—"}</div></div>
+            <div class="info-item"><div class="label">Nivel de riesgo ARL</div><div class="value">${e.nivel_riesgo_arl || "—"}</div></div>
+            <div class="info-item"><div class="label">Caja de compensación</div><div class="value">${escapeHtml(e.caja_compensacion) || "—"}</div></div>
+            <div class="info-item"><div class="label">Fondo de cesantías</div><div class="value">${escapeHtml(e.fondo_cesantias) || "—"}</div></div>
+            <div class="info-item"><div class="label">Tipo de cuenta</div><div class="value">${e.tipo_cuenta || "—"}</div></div>
+            <div class="info-item"><div class="label">Número de cuenta</div><div class="value">${escapeHtml(e.numero_cuenta) || "—"}</div></div>
+          </div>
+        </div>
+
+        <div class="panel-section">
           <div class="panel-section-title">
             Formación académica
             <button class="btn btn-ghost btn-sm write-only" data-toggle="form-estudio">+ Agregar</button>
@@ -536,6 +550,16 @@
      Modales: crear / editar empleado
      ------------------------------------------------------------------ */
 
+  function sanearPayloadEmpleado(payload) {
+    payload.vacaciones_dias_pendientes = Number(payload.vacaciones_dias_pendientes || 0);
+    payload.numero_documento = (payload.numero_documento || "").trim() || null;
+    payload.empresa_id = payload.empresa_id ? Number(payload.empresa_id) : null;
+    ["numero_cuenta", "eps", "afp", "arl", "caja_compensacion", "fondo_cesantias"].forEach((campo) => {
+      payload[campo] = (payload[campo] || "").trim() || null;
+    });
+    return payload;
+  }
+
   function empleadoFormHtml(e = {}) {
     const gen = e.genero || "Femenino";
     const nivel = e.nivel_educativo || "Profesional";
@@ -544,6 +568,8 @@
     const tipoDoc = e.tipo_documento || "CC";
     const estado = e.estado || "Activo";
     const empresaId = e.empresa_id ?? "";
+    const tipoCuenta = e.tipo_cuenta || "Ahorros";
+    const nivelRiesgo = e.nivel_riesgo_arl || "I";
     return `
       <div class="field">
         <label>Empresa</label>
@@ -631,6 +657,51 @@
           <span class="text-faint" style="font-size:11px;">Mensual: se paga el último día del mes. Quincenal: el 15 y el último día.</span>
         </div>
       </div>
+      <div class="field-row">
+        <div class="field">
+          <label>EPS</label>
+          <input type="text" name="eps" value="${escapeHtml(e.eps) || ""}" placeholder="Ej. EPS Sura">
+        </div>
+        <div class="field">
+          <label>AFP</label>
+          <input type="text" name="afp" value="${escapeHtml(e.afp) || ""}" placeholder="Ej. Porvenir">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>ARL</label>
+          <input type="text" name="arl" value="${escapeHtml(e.arl) || ""}" placeholder="Ej. ARL Sura">
+        </div>
+        <div class="field">
+          <label>Nivel de riesgo ARL</label>
+          <select name="nivel_riesgo_arl">
+            ${["I", "II", "III", "IV", "V"].map((n) => `<option ${n === nivelRiesgo ? "selected" : ""}>${n}</option>`).join("")}
+          </select>
+          <span class="text-faint" style="font-size:11px;">De esto depende la tasa de ARL que paga la empresa en la nómina.</span>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Caja de compensación</label>
+          <input type="text" name="caja_compensacion" value="${escapeHtml(e.caja_compensacion) || ""}" placeholder="Ej. Compensar">
+        </div>
+        <div class="field">
+          <label>Fondo de cesantías</label>
+          <input type="text" name="fondo_cesantias" value="${escapeHtml(e.fondo_cesantias) || ""}" placeholder="Ej. Porvenir">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Tipo de cuenta</label>
+          <select name="tipo_cuenta">
+            ${["Ahorros", "Corriente"].map((t) => `<option ${t === tipoCuenta ? "selected" : ""}>${t}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label>Número de cuenta</label>
+          <input type="text" name="numero_cuenta" value="${escapeHtml(e.numero_cuenta) || ""}">
+        </div>
+      </div>
       <div class="field">
         <label>Días de vacaciones pendientes</label>
         <input type="number" name="vacaciones_dias_pendientes" min="0" value="${e.vacaciones_dias_pendientes ?? 0}">
@@ -662,10 +733,7 @@
       overlay.querySelector("#form-nuevo-empleado").addEventListener("submit", async (ev) => {
         ev.preventDefault();
         const fd = new FormData(ev.target);
-        const payload = Object.fromEntries(fd.entries());
-        payload.vacaciones_dias_pendientes = Number(payload.vacaciones_dias_pendientes || 0);
-      payload.numero_documento = (payload.numero_documento || "").trim() || null;
-        payload.empresa_id = payload.empresa_id ? Number(payload.empresa_id) : null;
+        const payload = sanearPayloadEmpleado(Object.fromEntries(fd.entries()));
         if (!payload.vacaciones_ultima_toma) delete payload.vacaciones_ultima_toma;
         try {
           await api.post("/empleados", payload);
@@ -698,10 +766,7 @@
     overlay.querySelector("#form-editar-empleado").addEventListener("submit", async (ev) => {
       ev.preventDefault();
       const fd = new FormData(ev.target);
-      const payload = Object.fromEntries(fd.entries());
-      payload.vacaciones_dias_pendientes = Number(payload.vacaciones_dias_pendientes || 0);
-      payload.numero_documento = (payload.numero_documento || "").trim() || null;
-      payload.empresa_id = payload.empresa_id ? Number(payload.empresa_id) : null;
+      const payload = sanearPayloadEmpleado(Object.fromEntries(fd.entries()));
       if (!payload.vacaciones_ultima_toma) payload.vacaciones_ultima_toma = null;
       try {
         await api.put(`/empleados/${e.id}`, payload);

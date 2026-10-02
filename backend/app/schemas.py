@@ -8,9 +8,11 @@ from app.models import (
     EstadoProyecto,
     Genero,
     NivelEducativo,
+    NivelRiesgoArl,
     PeriodicidadPago,
     RolUsuario,
     TipoCargo,
+    TipoCuenta,
     TipoDocumento,
     TipoNovedad,
 )
@@ -161,6 +163,14 @@ class EmpleadoBase(BaseModel):
     periodicidad_pago: PeriodicidadPago = PeriodicidadPago.mensual
     vacaciones_ultima_toma: Optional[date] = None
     vacaciones_dias_pendientes: int = 0
+    tipo_cuenta: Optional[TipoCuenta] = None
+    numero_cuenta: Optional[str] = Field(default=None, max_length=40)
+    eps: Optional[str] = Field(default=None, max_length=120)
+    afp: Optional[str] = Field(default=None, max_length=120)
+    arl: Optional[str] = Field(default=None, max_length=120)
+    caja_compensacion: Optional[str] = Field(default=None, max_length=120)
+    fondo_cesantias: Optional[str] = Field(default=None, max_length=120)
+    nivel_riesgo_arl: Optional[NivelRiesgoArl] = None
 
 
 class EmpleadoCreate(EmpleadoBase):
