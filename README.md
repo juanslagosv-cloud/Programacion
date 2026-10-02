@@ -22,7 +22,7 @@ Programacion/
 │   │   ├── main.py          # Punto de entrada de la app FastAPI
 │   │   ├── config.py        # Variables de entorno (pydantic-settings)
 │   │   ├── database.py      # Motor SQLAlchemy y sesión
-│   │   ├── models.py        # Modelos ORM (Empresa, Empleado, Proyecto, Participación...)
+│   │   ├── models.py        # Modelos ORM (Empresa, Empleado, Contrato, Proyecto, Participación...)
 │   │   ├── schemas.py       # Esquemas Pydantic (entrada/salida)
 │   │   ├── security.py      # Hash de contraseñas y JWT
 │   │   ├── deps.py          # Dependencias de autenticación y autorización
@@ -86,7 +86,52 @@ Excel` en cualquier pantalla) trae una hoja `empresas` y una columna
 tres indicadores (rotación, costos laborales, ausentismo) se pueden filtrar
 o agrupar por empresa sin tocar nada más.
 
-## 3. Requisitos
+---
+
+## 3. Ficha del empleado: datos personales e historial contractual
+
+La ficha de cada empleado (panel lateral de la pantalla **Empleados**) tiene,
+además de lo descrito arriba, dos secciones más:
+
+### 3.1. Información personal y organizacional
+
+Ciudad, estado civil, contacto de emergencia (nombre, parentesco y teléfono),
+área y jefe inmediato. El jefe inmediato se elige entre los demás empleados
+del sistema (es la misma tabla `empleados`, con una referencia a sí misma),
+así que con este campo se arma un organigrama sin necesidad de otra pantalla.
+Todos estos campos son opcionales.
+
+### 3.2. Historial contractual
+
+Cada empleado puede tener varios contratos a lo largo del tiempo — por
+ejemplo, uno a término fijo que termina y otro indefinido que lo reemplaza
+cuando lo ascienden. El historial contractual es, sencillamente, la lista de
+esos contratos, del más reciente al más antiguo. Cada uno guarda:
+
+| Campo | Notas |
+|-------|-------|
+| Tipo de contrato | Término fijo, término indefinido, obra o labor, prestación de servicios o aprendizaje |
+| Fecha inicial / final | La fecha final queda vacía en los contratos a término indefinido |
+| Duración | **No se guarda**: se calcula a partir de las dos fechas de arriba, para que nunca quede desincronizada de ellas |
+| Período de prueba | En días |
+| Cargo contractual | El cargo que dice el contrato — puede no coincidir con el cargo actual de la persona si hubo un ascenso que todavía no se formaliza |
+| Salario | El que estipula ese contrato en particular |
+| Proyecto y centro de costos | A qué proyecto y centro de costos se imputa |
+| Modalidad | Presencial, híbrido o remoto |
+| Estado | Activo, vencido, suspendido o terminado |
+
+**Prórrogas y otrosí.** No son contratos nuevos, son modificaciones de uno
+existente, y quedan anidadas bajo el contrato que modifican. Una **prórroga**
+trae su propia fecha final, que se aplica de una vez al contrato: así el
+historial explica por qué cambió esa fecha, en vez de que el cambio quede
+silencioso. Un **otrosí** es cualquier otro cambio formal (un ascenso, un
+ajuste salarial) que se deja anotado sin modificar las fechas.
+
+> Un contrato con fecha final vencida que nadie ha marcado como "Vencido"
+> aparece con una insignia de aviso en la interfaz (campo `vencido` de la
+> API) — es solo un aviso, no cambia el estado guardado por su cuenta.
+
+## 4. Requisitos
 
 - Python 3.11+
 - Docker y Docker Compose (para PostgreSQL local) — o una instancia de PostgreSQL existente
@@ -94,9 +139,9 @@ o agrupar por empresa sin tocar nada más.
 
 ---
 
-## 4. Puesta en marcha — Backend
+## 5. Puesta en marcha — Backend
 
-### 4.1. Levantar PostgreSQL
+### 5.1. Levantar PostgreSQL
 
 ```bash
 docker compose up -d
@@ -105,7 +150,7 @@ docker compose up -d
 Esto crea una base de datos `ecodes_th` en `localhost:5432` con usuario/clave
 `ecodes` / `ecodes` (ver `docker-compose.yml`).
 
-### 4.2. Configurar variables de entorno
+### 5.2. Configurar variables de entorno
 
 ```bash
 cp .env.example backend/.env
@@ -122,7 +167,7 @@ usar una clave JWT propia. Variables disponibles:
 | `ACCESS_TOKEN_EXPIRE_MINUTES`   | Minutos de validez del token (por defecto 480 = 8h)        |
 | `CORS_ORIGINS`                  | Orígenes permitidos, separados por coma                    |
 
-### 4.3. Instalar dependencias y crear el entorno virtual
+### 5.3. Instalar dependencias y crear el entorno virtual
 
 ```bash
 cd backend
@@ -131,7 +176,7 @@ source .venv/bin/activate        # En Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4.4. Poblar la base de datos con datos de ejemplo
+### 5.4. Poblar la base de datos con datos de ejemplo
 
 Las tablas se crean automáticamente al iniciar la app, pero para tener datos de
 demo (empleados, proyectos, participaciones, novedades y nómina de ejemplo):
@@ -148,7 +193,7 @@ Esto crea dos usuarios de prueba:
 > El script de seed **borra y vuelve a crear todas las tablas** (`drop_all` +
 > `create_all`) — solo debe usarse en ambientes de desarrollo/demo.
 
-### 4.5. Iniciar la API
+### 5.5. Iniciar la API
 
 ```bash
 uvicorn app.main:app --reload --port 8000
@@ -159,7 +204,7 @@ interactiva (Swagger) en `http://localhost:8000/docs`.
 
 ---
 
-## 5. Puesta en marcha — Frontend
+## 6. Puesta en marcha — Frontend
 
 El frontend es HTML/CSS/JS puro, sin dependencias ni build step. Solo necesita
 servirse como archivos estáticos (no se puede abrir con `file://` porque el
@@ -184,17 +229,20 @@ para que el navegador pueda llamar a la API.
 
 ---
 
-## 6. Flujo de uso
+## 7. Flujo de uso
 
 1. Inicia sesión en `index.html` seleccionando el rol (Talento Humano o
    Administrativo) e ingresando usuario/contraseña.
 2. La pantalla de entrada es **Empleados**, con el widget de próximos
    cumpleaños (siguientes ~45 días) y la tabla filtrable de personal.
 3. Haz clic en una fila para abrir la ficha completa del empleado (panel
-   lateral): información general, afiliaciones y datos bancarios (EPS, AFP,
-   ARL y su nivel de riesgo, caja de compensación, fondo de cesantías, tipo y
-   número de cuenta), formación académica, experiencia laboral, proyectos
-   asignados (con su % de dedicación), vacaciones e historial de movimientos.
+   lateral): información general, información personal y organizacional
+   (ciudad, estado civil, contacto de emergencia, área, jefe inmediato),
+   afiliaciones y datos bancarios (banco, EPS, AFP, ARL y su nivel de riesgo,
+   caja de compensación, fondo de cesantías, tipo y número de cuenta),
+   historial contractual (ver sección 3), formación académica, experiencia
+   laboral, proyectos asignados (con su % de dedicación), vacaciones e
+   historial de movimientos.
 4. En **Proyectos** puedes crear proyectos y gestionar el equipo asignado con
    su % de dedicación — la suma de participación de una persona en todos sus
    proyectos nunca puede superar el 100% (validado en frontend y backend).
@@ -215,13 +263,13 @@ para que el navegador pueda llamar a la API.
 
 ---
 
-## 7. Reglas de liquidación de nómina
+## 8. Reglas de liquidación de nómina
 
 Todas las tasas y valores viven en un solo lugar (`backend/app/utils.py`,
 función `liquidar_nomina`) y los usan tanto el endpoint de nómina como el
 script de seed, así que nunca se desincronizan.
 
-### 7.1. Devengado
+### 8.1. Devengado
 
 | Concepto | Valor 2026 | Regla |
 |----------|-----------:|-------|
@@ -230,7 +278,7 @@ script de seed, así que nunca se desincronizan.
 | **Auxilio de transporte** | **$249.095** | Obligatorio por ley **solo** para quien devengue hasta 2 SMLMV. No depende del tipo de cargo. Si se deja en `0` al registrar la nómina, el sistema lo aplica automáticamente. |
 | **Auxilio de movilidad** | lo define Ecodes | Auxilio interno para roles de campo. **No es salarial ni prestacional**: no entra en ninguna base, solo suma al costo. Al ser una decisión de la empresa, **se registra persona a persona** y el sistema nunca lo calcula ni lo asume. |
 
-### 7.2. Deducciones al trabajador
+### 8.2. Deducciones al trabajador
 
 | Concepto | Tasa | Base |
 |----------|-----:|------|
@@ -240,7 +288,7 @@ script de seed, así que nunca se desincronizan.
 El campo `descuentos` queda libre para descuentos adicionales (préstamos,
 embargos, etc.); salud y pensión se calculan aparte.
 
-### 7.3. Costo adicional que asume el empleador
+### 8.3. Costo adicional que asume el empleador
 
 | Concepto | Tasa mensual | Base | Equivalente anual |
 |----------|-------------:|------|-------------------|
@@ -279,7 +327,7 @@ riesgo I), para no dejar de calcular algo razonable.
 > (`TASA_SALUD_EMPLEADOR`, etc. en `backend/app/utils.py`) y el cálculo las
 > incluye automáticamente.
 
-### 7.3.1. Afiliaciones y datos bancarios
+### 8.3.1. Afiliaciones y datos bancarios
 
 Además de lo que entra en el cálculo de nómina, la ficha del empleado guarda
 los datos que Contabilidad necesita para pagarle y afiliarlo: EPS, AFP,
@@ -288,7 +336,7 @@ cuenta. Son campos de texto libre (no hay una lista cerrada de entidades,
 porque cambian y varían según el país), opcionales para no bloquear el
 registro de alguien mientras se termina de recolectar su información.
 
-### 7.4. Periodicidad de pago: mensual y quincenal
+### 8.4. Periodicidad de pago: mensual y quincenal
 
 No todo el mundo cobra el mismo día. Cada empleado tiene un campo
 `periodicidad_pago`:
@@ -320,7 +368,7 @@ para poder analizar el flujo de caja por fecha de desembolso en Power BI.
 > se suman sus registros, de modo que un empleado quincenal aporta sus dos
 > quincenas y no se subestima su costo.
 
-### 7.5. Por qué importa para los indicadores
+### 8.5. Por qué importa para los indicadores
 
 El **costo por proyecto se prorratea sobre el costo real del empleador**, no
 sobre el salario: una persona cuesta entre 1,34× y 1,62× su salario según su
@@ -338,7 +386,7 @@ La hoja `nomina` del Excel exporta el desglose completo (`salud_empleado`,
 
 ---
 
-## 8. Certificado laboral en PDF
+## 9. Certificado laboral en PDF
 
 Desde la ficha de cada empleado (panel lateral, sección **Documentos**) se
 genera un certificado laboral en PDF con el logo y los datos de SU empresa
@@ -358,7 +406,7 @@ fecha de ingreso. Si la persona ya no está activa, el texto pasa a tiempo
 pasado y agrega la fecha de retiro, que se toma de la novedad de tipo
 **Salida**. Lo pueden emitir los dos roles: es una consulta, no modifica nada.
 
-### 8.1. Datos de la empresa y de quien firma
+### 9.1. Datos de la empresa y de quien firma
 
 El sistema **no se inventa** el NIT ni el nombre de quien firma: esos datos
 salen de la empresa asignada al empleado, administrada desde Empleados >
@@ -369,7 +417,7 @@ se le asigne una.
 Las variables `EMPRESA_*` y `FIRMANTE_*` del `.env` solo importan para la
 primera empresa que se crea al sembrar la base vacía (ver `.env.example`).
 
-### 8.2. Si pides el certificado con salario y no hay nómina
+### 9.2. Si pides el certificado con salario y no hay nómina
 
 El sistema responde con un mensaje explicando que esa persona no tiene nómina
 registrada, en vez de emitir un certificado que no dice nada del salario.
@@ -377,7 +425,7 @@ Registra la nómina del período o genera el certificado sin salario.
 
 ---
 
-## 9. Endpoints principales
+## 10. Endpoints principales
 
 | Método | Ruta                                          | Descripción                                   |
 |--------|------------------------------------------------|------------------------------------------------|
@@ -386,6 +434,9 @@ Registra la nómina del período o genera el certificado sin salario.
 | GET/POST/PUT/DELETE | `/empleados[/{id}]`               | CRUD de empleados                              |
 | POST/DELETE | `/empleados/{id}/estudios[/{id}]`          | Formación académica                            |
 | POST/DELETE | `/empleados/{id}/experiencia[/{id}]`       | Experiencia laboral                            |
+| GET/POST/PUT/DELETE | `/contratos[/{id}]`               | Historial contractual (`?empleado_id=` para filtrar) |
+| POST    | `/contratos/{id}/modificaciones`               | Agregar una prórroga o un otrosí               |
+| DELETE  | `/modificaciones/{id}`                         | Eliminar una prórroga o un otrosí              |
 | GET    | `/empleados/{id}/certificado-laboral`          | Certificado laboral en PDF (`?incluir_salario=&fecha_expedicion=`)|
 | GET    | `/empleados/cumpleanos`                        | Próximos cumpleaños (parámetro `dias`)         |
 | GET/POST/PUT/DELETE | `/proyectos[/{id}]`               | CRUD de proyectos                              |
@@ -401,7 +452,7 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 10. Notas de diseño
+## 11. Notas de diseño
 
 - Paleta derivada del logo de Ecodes: verde hoja y azul acento sobre fondo
   blanco dominante, con soporte completo de modo oscuro (variables CSS para
@@ -419,13 +470,13 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 11. Instalación en el servidor de Ecodes (recomendada)
+## 12. Instalación en el servidor de Ecodes (recomendada)
 
 Esta es la forma en que el sistema queda funcionando **dentro de la empresa**:
 en el servidor local, sin nube, y accesible desde los computadores de la
 oficina por el navegador. Los datos de los empleados nunca salen de Ecodes.
 
-### 11.1. Cómo queda montado
+### 12.1. Cómo queda montado
 
 ```
     Servidor de la oficina                    Computadores del equipo
@@ -440,7 +491,7 @@ Un solo programa sirve la API **y** las pantallas, así que no hay nada que
 instalar en los computadores del equipo: entran a
 `http://IP-DEL-SERVIDOR:8000` desde Chrome o Edge y listo.
 
-### 11.2. Instalación
+### 12.2. Instalación
 
 En el servidor hace falta **Docker Desktop** (Windows) o **Docker Engine**
 (Linux). Es lo único que se instala a mano.
@@ -471,7 +522,7 @@ más: `restart: unless-stopped` en `docker-compose.yml` se encarga.
 | Ver qué está pasando | `docker compose logs -f app` |
 | Actualizar a una versión nueva | `docker compose up -d --build` |
 
-### 11.3. Respaldos
+### 12.3. Respaldos
 
 Los datos viven dentro de Docker, no en una carpeta suelta, así que
 copiar archivos no alcanza: hay que generar el respaldo.
@@ -493,7 +544,7 @@ Ojo, reemplaza **todo** lo que haya en la base.
 > restauró no es un respaldo. Haz uno, restáuralo y verifica que los datos
 > estén completos.
 
-### 11.4. Seguridad en la red de la empresa
+### 12.4. Seguridad en la red de la empresa
 
 - **El sistema no va expuesto a internet.** Solo debe verse dentro de la red
   de la oficina. Si alguien necesita entrar desde afuera, que sea por la VPN
@@ -510,11 +561,11 @@ Ojo, reemplaza **todo** lo que haya en la base.
 
 ---
 
-## 12. Publicar el sistema en internet (Render + Vercel)
+## 13. Publicar el sistema en internet (Render + Vercel)
 
 > Esto es para **mostrar el sistema por fuera de la empresa** — la
 > sustentación de la tesis, por ejemplo. Para el uso real de Ecodes sirve la
-> instalación en el servidor local de la sección 10, que además evita que los
+> instalación en el servidor local de la sección 12, que además evita que los
 > datos de los empleados salgan de la empresa.
 
 
@@ -529,7 +580,7 @@ archivos estáticos.
 > ambas cosas en su plan gratuito. Si lo intentas desplegar en Vercel tal cual,
 > falla con `FUNCTION_INVOCATION_FAILED` porque no encuentra la base de datos.
 
-### 12.1. Backend en Render
+### 13.1. Backend en Render
 
 El archivo `render.yaml` en la raíz ya describe el servicio y la base de datos,
 así que no hay que configurar nada a mano.
@@ -572,7 +623,7 @@ así que no hay que configurar nada a mano.
 
 La documentación interactiva de la API queda en `https://TU-SERVICIO.onrender.com/docs`.
 
-### 12.2. Frontend en Vercel
+### 13.2. Frontend en Vercel
 
 1. Abre `frontend/js/config.js` y pega la URL que te dio Render:
 
@@ -607,7 +658,7 @@ El `CORS` ya está resuelto: `render.yaml` define
 definitivo como las URLs de vista previa que Vercel genera en cada despliegue.
 Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 
-### 12.3. Cosas que conviene saber del plan gratuito
+### 13.3. Cosas que conviene saber del plan gratuito
 
 | | |
 |---|---|
@@ -615,7 +666,7 @@ Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 | **La base de datos caduca** | Las bases PostgreSQL gratuitas de Render expiran a los 30 días. Para un proyecto de tesis alcanza, pero anótalo. |
 | **Las contraseñas del seed son públicas** | `th / th12345` y `admin / admin12345` están en el repositorio. Sirven para la demo; si el sistema llegara a manejar datos reales de empleados, cámbialas antes. |
 
-### 12.4. Otras opciones
+### 13.4. Otras opciones
 
 - **Backend**: cualquier host compatible con ASGI (Uvicorn/Gunicorn) —
   Railway, Fly.io, un VPS con Docker, etc. Solo hay que configurar

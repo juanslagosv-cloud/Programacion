@@ -7,7 +7,19 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import Empleado, Empresa, Estudio, Experiencia, Nomina, Novedad, Participacion, Proyecto
+from app.models import (
+    Contrato,
+    Empleado,
+    Empresa,
+    Estudio,
+    Experiencia,
+    ModificacionContrato,
+    Nomina,
+    Novedad,
+    Participacion,
+    Proyecto,
+)
+from app.utils import duracion_contrato
 
 router = APIRouter(prefix="/exportar", tags=["Exportar"])
 
@@ -27,6 +39,14 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
                 "genero": e.genero.value,
                 "fecha_nacimiento": e.fecha_nacimiento,
                 "direccion": e.direccion,
+                "ciudad": e.ciudad,
+                "estado_civil": e.estado_civil.value if e.estado_civil else None,
+                "contacto_emergencia_nombre": e.contacto_emergencia_nombre,
+                "contacto_emergencia_telefono": e.contacto_emergencia_telefono,
+                "contacto_emergencia_parentesco": e.contacto_emergencia_parentesco,
+                "area": e.area,
+                "jefe_inmediato_id": e.jefe_inmediato_id,
+                "jefe_inmediato_nombre": e.jefe_inmediato.nombre_completo if e.jefe_inmediato else None,
                 "nivel_educativo": e.nivel_educativo.value,
                 "nombre_cargo": e.nombre_cargo,
                 "tipo_cargo": e.tipo_cargo.value,
@@ -35,6 +55,7 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
                 "periodicidad_pago": e.periodicidad_pago.value,
                 "vacaciones_ultima_toma": e.vacaciones_ultima_toma,
                 "vacaciones_dias_pendientes": e.vacaciones_dias_pendientes,
+                "banco": e.banco,
                 "tipo_cuenta": e.tipo_cuenta.value if e.tipo_cuenta else None,
                 "numero_cuenta": e.numero_cuenta,
                 "eps": e.eps,
@@ -142,6 +163,46 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
         ]
     )
 
+    contratos = db.query(Contrato).all()
+    df_contratos = pd.DataFrame(
+        [
+            {
+                "id": c.id,
+                "empleado_id": c.empleado_id,
+                "empleado_nombre": c.empleado.nombre_completo,
+                "tipo_contrato": c.tipo_contrato.value,
+                "fecha_inicio": c.fecha_inicio,
+                "fecha_fin": c.fecha_fin,
+                "duracion": duracion_contrato(c),
+                "periodo_prueba_dias": c.periodo_prueba_dias,
+                "cargo_contractual": c.cargo_contractual,
+                "salario": float(c.salario),
+                "proyecto_id": c.proyecto_id,
+                "proyecto_nombre": c.proyecto.nombre if c.proyecto else None,
+                "centro_costos": c.centro_costos,
+                "modalidad": c.modalidad.value,
+                "estado": c.estado.value,
+            }
+            for c in contratos
+        ]
+    )
+
+    modificaciones = db.query(ModificacionContrato).all()
+    df_modificaciones = pd.DataFrame(
+        [
+            {
+                "id": m.id,
+                "contrato_id": m.contrato_id,
+                "empleado_id": m.contrato.empleado_id,
+                "tipo": m.tipo.value,
+                "fecha": m.fecha,
+                "detalle": m.detalle,
+                "nueva_fecha_fin": m.nueva_fecha_fin,
+            }
+            for m in modificaciones
+        ]
+    )
+
     novedades = db.query(Novedad).all()
     df_novedades = pd.DataFrame(
         [
@@ -182,6 +243,8 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
         df_experiencia.to_excel(writer, sheet_name="experiencia", index=False)
         df_proyectos.to_excel(writer, sheet_name="proyectos", index=False)
         df_participaciones.to_excel(writer, sheet_name="participaciones", index=False)
+        df_contratos.to_excel(writer, sheet_name="contratos", index=False)
+        df_modificaciones.to_excel(writer, sheet_name="modificaciones_contrato", index=False)
         df_nomina.to_excel(writer, sheet_name="nomina", index=False)
         df_novedades.to_excel(writer, sheet_name="novedades", index=False)
 

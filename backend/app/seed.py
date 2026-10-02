@@ -11,13 +11,18 @@ from datetime import date, timedelta
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import (
+    Contrato,
     Empleado,
     Empresa,
+    EstadoCivil,
+    EstadoContrato,
     EstadoEmpleado,
     EstadoProyecto,
     Estudio,
     Experiencia,
     Genero,
+    ModalidadTrabajo,
+    ModificacionContrato,
     Nomina,
     NivelEducativo,
     NivelRiesgoArl,
@@ -27,8 +32,10 @@ from app.models import (
     Proyecto,
     RolUsuario,
     TipoCargo,
+    TipoContrato,
     TipoCuenta,
     TipoDocumento,
+    TipoModificacionContrato,
     TipoNovedad,
     Usuario,
 )
@@ -40,6 +47,13 @@ HOY = date.today()
 
 def dias_desde_hoy(dias: int) -> date:
     return HOY + timedelta(days=dias)
+
+
+def meses_despues(f: date, meses: int) -> date:
+    total = f.month - 1 + meses
+    anio = f.year + total // 12
+    mes = total % 12 + 1
+    return date(anio, mes, f.day)
 
 
 def anios_atras(anios: int, dia: int, mes: int) -> date:
@@ -379,81 +393,125 @@ def run():
         for data in empleados_data:
             data["empresa"] = empresa_por_nombre[data["nombre_completo"]]
 
-        # Afiliaciones al sistema de seguridad social y datos bancarios.
-        # El nivel de riesgo de la ARL sigue el mismo criterio que antes
-        # separaba oficina de campo (ver utils.es_rol_campo), pero ahora
-        # queda registrado explícitamente en cada ficha en vez de inferirse
-        # del cargo cada vez que se liquida una nómina.
+        # Afiliaciones al sistema de seguridad social, datos bancarios y
+        # datos personales. El nivel de riesgo de la ARL sigue el mismo
+        # criterio que antes separaba oficina de campo (ver
+        # utils.es_rol_campo), pero ahora queda registrado explícitamente en
+        # cada ficha en vez de inferirse del cargo cada vez que se liquida
+        # una nómina. La ciudad sale de la misma dirección de cada quien,
+        # arriba, para que no se contradigan.
         afiliaciones_por_nombre = {
             "María Fernanda López Duarte": dict(
                 eps="EPS Sura", afp="Porvenir", arl="ARL Sura", caja_compensacion="Compensar",
                 fondo_cesantias="Porvenir", nivel_riesgo_arl=NivelRiesgoArl.i,
-                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345671",
+                banco="Bancolombia", tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345671",
+                ciudad="Bogotá D.C.", estado_civil=EstadoCivil.casado, area="Talento Humano",
+                contacto_emergencia_nombre="Carlos López", contacto_emergencia_telefono="3001234501",
+                contacto_emergencia_parentesco="Esposo",
             ),
             "Andrés Felipe Torres Gómez": dict(
                 eps="Sanitas EPS", afp="Protección", arl="Positiva ARL", caja_compensacion="Colsubsidio",
                 fondo_cesantias="Protección", nivel_riesgo_arl=NivelRiesgoArl.i,
-                tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345672",
+                banco="Davivienda", tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345672",
+                ciudad="Medellín", estado_civil=EstadoCivil.casado, area="Financiera y Administrativa",
+                contacto_emergencia_nombre="Marcela Gómez", contacto_emergencia_telefono="3001234502",
+                contacto_emergencia_parentesco="Esposa",
             ),
             "Laura Camila Restrepo Ibáñez": dict(
                 eps="Nueva EPS", afp="Colfondos", arl="Colmena Seguros", caja_compensacion="Comfama",
                 fondo_cesantias="Colfondos", nivel_riesgo_arl=NivelRiesgoArl.iii,
-                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345673",
+                banco="Banco de Bogotá", tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345673",
+                ciudad="Cali", estado_civil=EstadoCivil.soltero, area="Operaciones - Restauración",
+                contacto_emergencia_nombre="Ana Restrepo", contacto_emergencia_telefono="3001234503",
+                contacto_emergencia_parentesco="Madre",
             ),
             "Juan Sebastián Vargas Peña": dict(
                 eps="Compensar EPS", afp="Porvenir", arl="ARL Sura", caja_compensacion="Comfenalco Valle",
                 fondo_cesantias="Porvenir", nivel_riesgo_arl=NivelRiesgoArl.v,
-                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345674",
+                banco="Bancolombia", tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345674",
+                ciudad="Bucaramanga", estado_civil=EstadoCivil.soltero, area="Operaciones - Restauración",
+                contacto_emergencia_nombre="Luz Peña", contacto_emergencia_telefono="3001234504",
+                contacto_emergencia_parentesco="Madre",
             ),
             "Diana Marcela Sánchez Ortiz": dict(
                 eps="Salud Total EPS", afp="Protección", arl="Seguros Bolívar ARL", caja_compensacion="Compensar",
                 fondo_cesantias="Protección", nivel_riesgo_arl=NivelRiesgoArl.iii,
-                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345675",
+                banco="BBVA Colombia", tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345675",
+                ciudad="Bogotá D.C.", estado_civil=EstadoCivil.union_libre, area="Operaciones - Compensación Forestal",
+                contacto_emergencia_nombre="Felipe Ortiz", contacto_emergencia_telefono="3001234505",
+                contacto_emergencia_parentesco="Pareja",
             ),
             "Carlos Eduardo Ramírez Silva": dict(
                 eps="EPS Sura", afp="Colfondos", arl="Colmena Seguros", caja_compensacion="Colsubsidio",
                 fondo_cesantias="Colfondos", nivel_riesgo_arl=NivelRiesgoArl.iii,
-                tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345676",
+                banco="Scotiabank Colpatria", tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345676",
+                ciudad="Lima", estado_civil=EstadoCivil.casado, area="Operaciones - Monitoreo",
+                contacto_emergencia_nombre="Rosa Silva", contacto_emergencia_telefono="3001234506",
+                contacto_emergencia_parentesco="Esposa",
             ),
             "Valentina Herrera Cuesta": dict(
                 eps="Nueva EPS", afp="Porvenir", arl="ARL Sura", caja_compensacion="Comfama",
                 fondo_cesantias="Porvenir", nivel_riesgo_arl=NivelRiesgoArl.v,
-                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345677",
+                banco="Davivienda", tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345677",
+                ciudad="Pasto", estado_civil=EstadoCivil.soltero, area="Operaciones - Monitoreo",
+                contacto_emergencia_nombre="Marta Cuesta", contacto_emergencia_telefono="3001234507",
+                contacto_emergencia_parentesco="Madre",
             ),
             "Ricardo Antonio Molina Paz": dict(
                 eps="Sanitas EPS", afp="Protección", arl="Positiva ARL", caja_compensacion="Compensar",
                 fondo_cesantias="Protección", nivel_riesgo_arl=NivelRiesgoArl.i,
-                tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345678",
+                banco="Banco de Bogotá", tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345678",
+                ciudad="San Carlos de Bariloche", estado_civil=EstadoCivil.casado, area="Dirección Regional Argentina",
+                contacto_emergencia_nombre="Elena Paz", contacto_emergencia_telefono="3001234508",
+                contacto_emergencia_parentesco="Esposa",
             ),
             "Paula Andrea Gil Moreno": dict(
                 eps="Famisanar EPS", afp="Colfondos", arl="ARL Sura", caja_compensacion="Colsubsidio",
                 fondo_cesantias="Colfondos", nivel_riesgo_arl=NivelRiesgoArl.i,
-                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345679",
+                banco="Bancolombia", tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345679",
+                ciudad="Bogotá D.C.", estado_civil=EstadoCivil.soltero, area="Financiera y Administrativa",
+                contacto_emergencia_nombre="Jorge Moreno", contacto_emergencia_telefono="3001234509",
+                contacto_emergencia_parentesco="Hermano",
             ),
             "Jorge Iván Castañeda Ruiz": dict(
                 eps="Compensar EPS", afp="Porvenir", arl="Colmena Seguros", caja_compensacion="Comfenalco Valle",
                 fondo_cesantias="Porvenir", nivel_riesgo_arl=NivelRiesgoArl.v,
-                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345680",
+                banco="Banco Agrario", tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345680",
+                ciudad="Neiva", estado_civil=EstadoCivil.union_libre, area="Operaciones - Restauración",
+                contacto_emergencia_nombre="Diana Ruiz", contacto_emergencia_telefono="3001234510",
+                contacto_emergencia_parentesco="Pareja",
             ),
             "Natalia Andrea Peralta Fonseca": dict(
                 eps="Nueva EPS", afp="Protección", arl="Seguros Bolívar ARL", caja_compensacion="Compensar",
                 fondo_cesantias="Protección", nivel_riesgo_arl=NivelRiesgoArl.iii,
-                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345681",
+                banco="BBVA Colombia", tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345681",
+                ciudad="Bogotá D.C.", estado_civil=EstadoCivil.soltero, area="Operaciones Ambientales",
+                contacto_emergencia_nombre="Carmen Fonseca", contacto_emergencia_telefono="3001234511",
+                contacto_emergencia_parentesco="Madre",
             ),
             "Esteban Alejandro Ríos Bermúdez": dict(
                 eps="EPS Sura", afp="Colfondos", arl="ARL Sura", caja_compensacion="Comfama",
                 fondo_cesantias="Colfondos", nivel_riesgo_arl=NivelRiesgoArl.iii,
-                tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345682",
+                banco="Scotiabank Colpatria", tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345682",
+                ciudad="Lima", estado_civil=EstadoCivil.separado, area="Operaciones - Monitoreo",
+                contacto_emergencia_nombre="Pedro Bermúdez", contacto_emergencia_telefono="3001234512",
+                contacto_emergencia_parentesco="Hermano",
             ),
             "Sofía Isabel Cárdenas León": dict(
                 eps="Salud Total EPS", afp="Porvenir", arl="Positiva ARL", caja_compensacion="Colsubsidio",
                 fondo_cesantias="Porvenir", nivel_riesgo_arl=NivelRiesgoArl.i,
-                tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345683",
+                banco="Bancolombia", tipo_cuenta=TipoCuenta.ahorros, numero_cuenta="00912345683",
+                ciudad="Bogotá D.C.", estado_civil=EstadoCivil.soltero, area="Administrativa",
+                contacto_emergencia_nombre="Isabel León", contacto_emergencia_telefono="3001234513",
+                contacto_emergencia_parentesco="Madre",
             ),
             "Pedro Pablo Ospina Duque": dict(
                 eps="Sanitas EPS", afp="Protección", arl="ARL Sura", caja_compensacion="Compensar",
                 fondo_cesantias="Protección", nivel_riesgo_arl=NivelRiesgoArl.i,
-                tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345684",
+                banco="Davivienda", tipo_cuenta=TipoCuenta.corriente, numero_cuenta="00912345684",
+                ciudad="Pereira", estado_civil=EstadoCivil.casado, area="Gerencia General",
+                contacto_emergencia_nombre="Lucía Duque", contacto_emergencia_telefono="3001234514",
+                contacto_emergencia_parentesco="Esposa",
             ),
         }
         for data in empleados_data:
@@ -479,6 +537,23 @@ def run():
             e_sofia,
             e_pedro,
         ) = empleados
+
+        # Organigrama: quién reporta a quién. Pedro (Gerente General) queda
+        # en la raíz, sin jefe. Se asigna después del flush porque hace
+        # falta que cada empleado ya tenga id.
+        e_maria.jefe_inmediato = e_pedro
+        e_andres.jefe_inmediato = e_pedro
+        e_laura.jefe_inmediato = e_pedro
+        e_juan.jefe_inmediato = e_laura
+        e_jorge.jefe_inmediato = e_laura
+        e_diana.jefe_inmediato = e_pedro
+        e_carlos.jefe_inmediato = e_pedro
+        e_valentina.jefe_inmediato = e_carlos
+        e_ricardo.jefe_inmediato = e_pedro
+        e_paula.jefe_inmediato = e_andres
+        e_natalia.jefe_inmediato = e_diana
+        e_esteban.jefe_inmediato = e_carlos
+        e_sofia.jefe_inmediato = e_maria
 
         # -------------------------------------------------------------
         # Formación académica y experiencia
@@ -600,6 +675,168 @@ def run():
             e_sofia: (1_800_000, 0),
             e_pedro: (15_000_000, 0),
         }
+
+        # -------------------------------------------------------------
+        # Historial contractual
+        #
+        # La mayoría tiene un único contrato vigente. Laura, Juan, Diana y
+        # Jorge traen algo de historia (un contrato anterior ya terminado,
+        # una prórroga o un otrosí) para que el panel de "Historial
+        # contractual" se vea con información real y no con una sola fila.
+        # -------------------------------------------------------------
+        c_maria = Contrato(
+            empleado=e_maria, tipo_contrato=TipoContrato.termino_indefinido,
+            fecha_inicio=e_maria.fecha_ingreso, cargo_contractual=e_maria.nombre_cargo,
+            salario=9_500_000, centro_costos="TH-ADMIN", modalidad=ModalidadTrabajo.hibrido,
+            estado=EstadoContrato.activo,
+        )
+        c_andres = Contrato(
+            empleado=e_andres, tipo_contrato=TipoContrato.termino_indefinido,
+            fecha_inicio=e_andres.fecha_ingreso, cargo_contractual=e_andres.nombre_cargo,
+            salario=10_200_000, centro_costos="FIN-ADMIN", modalidad=ModalidadTrabajo.hibrido,
+            estado=EstadoContrato.activo,
+        )
+
+        # Laura empezó a término fijo como profesional y, al año, la
+        # ascendieron a coordinadora con contrato indefinido.
+        laura_fin_fijo = date(e_laura.fecha_ingreso.year + 1, e_laura.fecha_ingreso.month, e_laura.fecha_ingreso.day)
+        c_laura_1 = Contrato(
+            empleado=e_laura, tipo_contrato=TipoContrato.termino_fijo,
+            fecha_inicio=e_laura.fecha_ingreso, fecha_fin=laura_fin_fijo, periodo_prueba_dias=60,
+            cargo_contractual="Profesional de Restauración Ecológica", salario=4_800_000,
+            proyecto=p1, centro_costos="OPS-RESTAURACION", modalidad=ModalidadTrabajo.presencial,
+            estado=EstadoContrato.terminado,
+        )
+        c_laura_2 = Contrato(
+            empleado=e_laura, tipo_contrato=TipoContrato.termino_indefinido,
+            fecha_inicio=date(laura_fin_fijo.year, laura_fin_fijo.month, laura_fin_fijo.day),
+            cargo_contractual=e_laura.nombre_cargo, salario=6_800_000,
+            proyecto=p1, centro_costos="OPS-RESTAURACION", modalidad=ModalidadTrabajo.presencial,
+            estado=EstadoContrato.activo,
+        )
+        c_laura_2.modificaciones.append(
+            ModificacionContrato(
+                tipo=TipoModificacionContrato.otrosi,
+                fecha=dias_desde_hoy(-360),
+                detalle="Se formaliza el ascenso a Coordinadora de Restauración Ecológica y el ajuste salarial correspondiente.",
+            )
+        )
+
+        c_diana = Contrato(
+            empleado=e_diana, tipo_contrato=TipoContrato.termino_indefinido,
+            fecha_inicio=e_diana.fecha_ingreso, cargo_contractual=e_diana.nombre_cargo,
+            salario=7_200_000, proyecto=p2, centro_costos="OPS-COMPENSACION",
+            modalidad=ModalidadTrabajo.hibrido, estado=EstadoContrato.activo,
+        )
+        c_diana.modificaciones.append(
+            ModificacionContrato(
+                tipo=TipoModificacionContrato.otrosi,
+                fecha=dias_desde_hoy(-200),
+                detalle="Ajuste salarial anual por desempeño: de $6.800.000 a $7.200.000 mensuales.",
+            )
+        )
+
+        c_carlos = Contrato(
+            empleado=e_carlos, tipo_contrato=TipoContrato.termino_indefinido,
+            fecha_inicio=e_carlos.fecha_ingreso, cargo_contractual=e_carlos.nombre_cargo,
+            salario=7_800_000, proyecto=p3, centro_costos="OPS-MONITOREO",
+            modalidad=ModalidadTrabajo.presencial, estado=EstadoContrato.activo,
+        )
+
+        valentina_fin_fijo = date(e_valentina.fecha_ingreso.year + 1, e_valentina.fecha_ingreso.month, e_valentina.fecha_ingreso.day)
+        c_valentina = Contrato(
+            empleado=e_valentina, tipo_contrato=TipoContrato.termino_fijo,
+            fecha_inicio=e_valentina.fecha_ingreso, fecha_fin=valentina_fin_fijo, periodo_prueba_dias=60,
+            cargo_contractual=e_valentina.nombre_cargo, salario=1_900_000,
+            proyecto=p3, centro_costos="OPS-MONITOREO", modalidad=ModalidadTrabajo.presencial,
+            estado=EstadoContrato.activo,
+        )
+
+        c_ricardo = Contrato(
+            empleado=e_ricardo, tipo_contrato=TipoContrato.termino_indefinido,
+            fecha_inicio=e_ricardo.fecha_ingreso, cargo_contractual=e_ricardo.nombre_cargo,
+            salario=8_500_000, proyecto=p5, centro_costos="DIR-REGIONAL-AR",
+            modalidad=ModalidadTrabajo.hibrido, estado=EstadoContrato.activo,
+        )
+        c_paula = Contrato(
+            empleado=e_paula, tipo_contrato=TipoContrato.termino_indefinido,
+            fecha_inicio=e_paula.fecha_ingreso, cargo_contractual=e_paula.nombre_cargo,
+            salario=4_200_000, centro_costos="FIN-ADMIN", modalidad=ModalidadTrabajo.hibrido,
+            estado=EstadoContrato.activo,
+        )
+
+        # Jorge empezó por obra o labor para una fase puntual y, cuando esa
+        # fase terminó, pasó a un contrato a término fijo.
+        jorge_fin_obra = meses_despues(e_jorge.fecha_ingreso, 6)
+        c_jorge_1 = Contrato(
+            empleado=e_jorge, tipo_contrato=TipoContrato.obra_labor,
+            fecha_inicio=e_jorge.fecha_ingreso, fecha_fin=jorge_fin_obra,
+            cargo_contractual="Operario de Campo - Restauración", salario=1_950_000,
+            proyecto=p2, centro_costos="OPS-RESTAURACION", modalidad=ModalidadTrabajo.presencial,
+            estado=EstadoContrato.terminado,
+        )
+        jorge_fin_fijo = date(jorge_fin_obra.year + 1, jorge_fin_obra.month, jorge_fin_obra.day)
+        c_jorge_2 = Contrato(
+            empleado=e_jorge, tipo_contrato=TipoContrato.termino_fijo,
+            fecha_inicio=jorge_fin_obra, fecha_fin=jorge_fin_fijo, periodo_prueba_dias=60,
+            cargo_contractual=e_jorge.nombre_cargo, salario=2_100_000,
+            proyecto=p2, centro_costos="OPS-RESTAURACION", modalidad=ModalidadTrabajo.presencial,
+            estado=EstadoContrato.activo,
+        )
+
+        natalia_fin_fijo = date(e_natalia.fecha_ingreso.year + 1, e_natalia.fecha_ingreso.month, e_natalia.fecha_ingreso.day)
+        c_natalia = Contrato(
+            empleado=e_natalia, tipo_contrato=TipoContrato.termino_fijo,
+            fecha_inicio=e_natalia.fecha_ingreso, fecha_fin=natalia_fin_fijo, periodo_prueba_dias=60,
+            cargo_contractual=e_natalia.nombre_cargo, salario=3_800_000,
+            proyecto=p4, centro_costos="OPS-AMBIENTAL", modalidad=ModalidadTrabajo.hibrido,
+            estado=EstadoContrato.activo,
+        )
+
+        # Juan sigue a término fijo, pero ya se le prorrogó una vez.
+        juan_fin_fijo = date(e_juan.fecha_ingreso.year + 1, e_juan.fecha_ingreso.month, e_juan.fecha_ingreso.day)
+        c_juan = Contrato(
+            empleado=e_juan, tipo_contrato=TipoContrato.termino_fijo,
+            fecha_inicio=e_juan.fecha_ingreso, fecha_fin=juan_fin_fijo, periodo_prueba_dias=60,
+            cargo_contractual=e_juan.nombre_cargo, salario=2_600_000,
+            proyecto=p1, centro_costos="OPS-RESTAURACION", modalidad=ModalidadTrabajo.presencial,
+            estado=EstadoContrato.activo,
+        )
+        juan_prorroga_fin = meses_despues(juan_fin_fijo, 6)
+        c_juan.fecha_fin = juan_prorroga_fin
+        c_juan.modificaciones.append(
+            ModificacionContrato(
+                tipo=TipoModificacionContrato.prorroga,
+                fecha=dias_desde_hoy(-10),
+                detalle="Se prorroga el contrato por 6 meses adicionales para continuar la fase de restauración.",
+                nueva_fecha_fin=juan_prorroga_fin,
+            )
+        )
+
+        c_esteban = Contrato(
+            empleado=e_esteban, tipo_contrato=TipoContrato.obra_labor,
+            fecha_inicio=e_esteban.fecha_ingreso, fecha_fin=dias_desde_hoy(-15), periodo_prueba_dias=60,
+            cargo_contractual=e_esteban.nombre_cargo, salario=2_400_000,
+            proyecto=p3, centro_costos="OPS-MONITOREO", modalidad=ModalidadTrabajo.presencial,
+            estado=EstadoContrato.terminado,
+        )
+        c_sofia = Contrato(
+            empleado=e_sofia, tipo_contrato=TipoContrato.termino_indefinido,
+            fecha_inicio=e_sofia.fecha_ingreso, cargo_contractual=e_sofia.nombre_cargo,
+            salario=1_800_000, centro_costos="ADMIN-GENERAL", modalidad=ModalidadTrabajo.presencial,
+            estado=EstadoContrato.activo,
+        )
+        c_pedro = Contrato(
+            empleado=e_pedro, tipo_contrato=TipoContrato.termino_indefinido,
+            fecha_inicio=e_pedro.fecha_ingreso, cargo_contractual=e_pedro.nombre_cargo,
+            salario=15_000_000, centro_costos="GERENCIA", modalidad=ModalidadTrabajo.presencial,
+            estado=EstadoContrato.activo,
+        )
+
+        db.add_all([
+            c_maria, c_andres, c_laura_1, c_laura_2, c_diana, c_carlos, c_valentina,
+            c_ricardo, c_paula, c_jorge_1, c_jorge_2, c_natalia, c_juan, c_esteban, c_sofia, c_pedro,
+        ])
 
         for periodo in (mes_anterior, periodo_actual):
             for empleado, (salario, movilidad) in salarios.items():

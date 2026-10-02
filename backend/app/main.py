@@ -8,7 +8,18 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import Base, engine
-from app.routers import alertas, auth, empleados, empresas, exportar, nomina, novedades, participaciones, proyectos
+from app.routers import (
+    alertas,
+    auth,
+    contratos,
+    empleados,
+    empresas,
+    exportar,
+    nomina,
+    novedades,
+    participaciones,
+    proyectos,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +55,7 @@ app.add_middleware(CORSMiddleware, **cors_kwargs)
 app.include_router(auth.router)
 app.include_router(empresas.router)
 app.include_router(empleados.router)
+app.include_router(contratos.router)
 app.include_router(proyectos.router)
 app.include_router(participaciones.router)
 app.include_router(novedades.router)

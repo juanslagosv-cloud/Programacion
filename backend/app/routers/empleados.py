@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.certificados import generar_certificado_laboral
 from app.deps import get_current_user, require_write
-from app.models import Empleado, EstadoEmpleado, Estudio, Experiencia, TipoCargo
+from app.models import Contrato, Empleado, EstadoEmpleado, Estudio, Experiencia, TipoCargo
 from app.schemas import (
     CumpleañosOut,
     EmpleadoCreate,
@@ -21,7 +21,7 @@ from app.schemas import (
     ExperienciaCreate,
     ExperienciaOut,
 )
-from app.utils import antiguedad_meses, porcentaje_total_empleado
+from app.utils import antiguedad_meses, contrato_vencido, duracion_contrato, porcentaje_total_empleado
 
 router = APIRouter(prefix="/empleados", tags=["Empleados"])
 
@@ -34,6 +34,9 @@ def _empleado_con_relaciones(db: Session, empleado_id: int) -> Empleado:
             joinedload(Empleado.experiencias),
             joinedload(Empleado.participaciones),
             joinedload(Empleado.empresa),
+            joinedload(Empleado.jefe_inmediato),
+            joinedload(Empleado.contratos).joinedload(Contrato.modificaciones),
+            joinedload(Empleado.contratos).joinedload(Contrato.proyecto),
         )
         .filter(Empleado.id == empleado_id)
         .first()
@@ -57,9 +60,14 @@ def _to_out(empleado: Empleado) -> EmpleadoOut:
     data.antiguedad_meses = antiguedad_meses(empleado)
     data.porcentaje_total = porcentaje_total_empleado(empleado)
     data.empresa_nombre = empleado.empresa.nombre if empleado.empresa else None
+    data.jefe_inmediato_nombre = empleado.jefe_inmediato.nombre_completo if empleado.jefe_inmediato else None
     for part_out, part in zip(data.participaciones, empleado.participaciones):
         part_out.empleado_nombre = empleado.nombre_completo
         part_out.proyecto_nombre = part.proyecto.nombre
+    for contrato_out, contrato in zip(data.contratos, empleado.contratos):
+        contrato_out.proyecto_nombre = contrato.proyecto.nombre if contrato.proyecto else None
+        contrato_out.duracion = duracion_contrato(contrato)
+        contrato_out.vencido = contrato_vencido(contrato)
     return data
 
 

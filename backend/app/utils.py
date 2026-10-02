@@ -2,7 +2,7 @@ import calendar
 from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 
-from app.models import Empleado, NivelRiesgoArl, Novedad, PeriodicidadPago, Proyecto, TipoNovedad
+from app.models import EstadoContrato, Empleado, NivelRiesgoArl, Novedad, PeriodicidadPago, Proyecto, TipoNovedad
 
 # En nómina el mes siempre se cuenta como 30 días, sin importar los días
 # calendario reales: una quincena son 15 días y un mes completo 30.
@@ -272,6 +272,29 @@ def meses_entre(inicio: date, fin: date) -> int:
 
 def antiguedad_meses(empleado: Empleado) -> int:
     return meses_entre(empleado.fecha_ingreso, date.today())
+
+
+def duracion_contrato(contrato) -> str:
+    """Texto de la duración del contrato. No se guarda como columna aparte
+    para que nunca quede desincronizada de fecha_inicio/fecha_fin."""
+    if contrato.fecha_fin is None:
+        return "Indefinido"
+    meses = meses_entre(contrato.fecha_inicio, contrato.fecha_fin)
+    if meses < 1:
+        dias = (contrato.fecha_fin - contrato.fecha_inicio).days
+        return f"{dias} día{'s' if dias != 1 else ''}"
+    return f"{meses} mes{'es' if meses != 1 else ''}"
+
+
+def contrato_vencido(contrato) -> bool:
+    """Indicador de solo lectura: el contrato tiene fecha de fin y ya pasó,
+    pero nadie ha actualizado el campo `estado`. No lo modifica: Talento
+    Humano decide cuándo marcarlo Vencido, esto solo avisa en la interfaz."""
+    if contrato.fecha_fin is None:
+        return False
+    if contrato.estado in (EstadoContrato.terminado, EstadoContrato.vencido):
+        return False
+    return contrato.fecha_fin < date.today()
 
 
 def porcentaje_total_empleado(empleado: Empleado) -> float:

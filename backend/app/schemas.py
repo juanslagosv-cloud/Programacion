@@ -4,16 +4,21 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models import (
+    EstadoCivil,
+    EstadoContrato,
     EstadoEmpleado,
     EstadoProyecto,
     Genero,
+    ModalidadTrabajo,
     NivelEducativo,
     NivelRiesgoArl,
     PeriodicidadPago,
     RolUsuario,
     TipoCargo,
+    TipoContrato,
     TipoCuenta,
     TipoDocumento,
+    TipoModificacionContrato,
     TipoNovedad,
 )
 
@@ -155,6 +160,13 @@ class EmpleadoBase(BaseModel):
     genero: Genero
     fecha_nacimiento: date
     direccion: Optional[str] = None
+    ciudad: Optional[str] = Field(default=None, max_length=120)
+    estado_civil: Optional[EstadoCivil] = None
+    contacto_emergencia_nombre: Optional[str] = Field(default=None, max_length=150)
+    contacto_emergencia_telefono: Optional[str] = Field(default=None, max_length=40)
+    contacto_emergencia_parentesco: Optional[str] = Field(default=None, max_length=80)
+    area: Optional[str] = Field(default=None, max_length=120)
+    jefe_inmediato_id: Optional[int] = None
     nivel_educativo: NivelEducativo
     nombre_cargo: str
     tipo_cargo: TipoCargo
@@ -163,6 +175,7 @@ class EmpleadoBase(BaseModel):
     periodicidad_pago: PeriodicidadPago = PeriodicidadPago.mensual
     vacaciones_ultima_toma: Optional[date] = None
     vacaciones_dias_pendientes: int = 0
+    banco: Optional[str] = Field(default=None, max_length=120)
     tipo_cuenta: Optional[TipoCuenta] = None
     numero_cuenta: Optional[str] = Field(default=None, max_length=40)
     eps: Optional[str] = Field(default=None, max_length=120)
@@ -180,6 +193,62 @@ class EmpleadoCreate(EmpleadoBase):
 
 class EmpleadoUpdate(EmpleadoBase):
     pass
+
+
+# ---------------------------------------------------------------------------
+# Contratos (historial contractual del empleado)
+# ---------------------------------------------------------------------------
+
+class ModificacionContratoBase(BaseModel):
+    tipo: TipoModificacionContrato
+    fecha: date
+    detalle: str
+    # Solo tiene sentido cuando tipo es "Prórroga": al crearla, se aplica
+    # automáticamente como la nueva fecha_fin del contrato (ver routers/contratos.py).
+    nueva_fecha_fin: Optional[date] = None
+
+
+class ModificacionContratoCreate(ModificacionContratoBase):
+    pass
+
+
+class ModificacionContratoOut(ModificacionContratoBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    contrato_id: int
+
+
+class ContratoBase(BaseModel):
+    tipo_contrato: TipoContrato
+    fecha_inicio: date
+    fecha_fin: Optional[date] = None
+    periodo_prueba_dias: Optional[int] = Field(default=None, ge=0)
+    cargo_contractual: str
+    salario: float = Field(ge=0)
+    proyecto_id: Optional[int] = None
+    centro_costos: Optional[str] = Field(default=None, max_length=80)
+    modalidad: ModalidadTrabajo = ModalidadTrabajo.presencial
+    estado: EstadoContrato = EstadoContrato.activo
+
+
+class ContratoCreate(ContratoBase):
+    empleado_id: int
+
+
+class ContratoUpdate(ContratoBase):
+    pass
+
+
+class ContratoOut(ContratoBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    empleado_id: int
+    proyecto_nombre: Optional[str] = None
+    # "12 meses" o "Indefinido" — se calcula a partir de fecha_inicio/fecha_fin
+    # en vez de guardarse, para que nunca quede desincronizado de las fechas.
+    duracion: Optional[str] = None
+    vencido: bool = False
+    modificaciones: list[ModificacionContratoOut] = []
 
 
 class EmpleadoListOut(BaseModel):
@@ -205,10 +274,12 @@ class EmpleadoOut(EmpleadoBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     empresa_nombre: Optional[str] = None
+    jefe_inmediato_nombre: Optional[str] = None
     antiguedad_meses: int = 0
     estudios: list[EstudioOut] = []
     experiencias: list[ExperienciaOut] = []
     participaciones: list[ParticipacionOut] = []
+    contratos: list[ContratoOut] = []
     porcentaje_total: float = 0
 
 

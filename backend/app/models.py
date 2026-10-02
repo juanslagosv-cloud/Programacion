@@ -94,6 +94,44 @@ class TipoNovedad(str, enum.Enum):
     otro = "Otro"
 
 
+class EstadoCivil(str, enum.Enum):
+    soltero = "Soltero(a)"
+    casado = "Casado(a)"
+    union_libre = "Unión libre"
+    separado = "Separado(a)"
+    viudo = "Viudo(a)"
+
+
+# ---------------------------------------------------------------------------
+# Contratos
+# ---------------------------------------------------------------------------
+
+class TipoContrato(str, enum.Enum):
+    termino_fijo = "Término fijo"
+    termino_indefinido = "Término indefinido"
+    obra_labor = "Obra o labor"
+    prestacion_servicios = "Prestación de servicios"
+    aprendizaje = "Aprendizaje"
+
+
+class ModalidadTrabajo(str, enum.Enum):
+    presencial = "Presencial"
+    hibrido = "Híbrido"
+    remoto = "Remoto"
+
+
+class EstadoContrato(str, enum.Enum):
+    activo = "Activo"
+    vencido = "Vencido"
+    suspendido = "Suspendido"
+    terminado = "Terminado"
+
+
+class TipoModificacionContrato(str, enum.Enum):
+    prorroga = "Prórroga"
+    otrosi = "Otrosí"
+
+
 # ---------------------------------------------------------------------------
 # Usuarios (autenticación)
 # ---------------------------------------------------------------------------
@@ -162,6 +200,17 @@ class Empleado(Base):
     genero: Mapped[Genero] = mapped_column(Enum(Genero, name="genero"))
     fecha_nacimiento: Mapped[date] = mapped_column(Date)
     direccion: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    ciudad: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    estado_civil: Mapped[EstadoCivil | None] = mapped_column(Enum(EstadoCivil, name="estado_civil"), nullable=True)
+    contacto_emergencia_nombre: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    contacto_emergencia_telefono: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    contacto_emergencia_parentesco: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    area: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # Quién es el jefe directo de esta persona, para el organigrama. Se
+    # referencia a sí misma la tabla porque el jefe también es un empleado.
+    jefe_inmediato_id: Mapped[int | None] = mapped_column(
+        ForeignKey("empleados.id", ondelete="SET NULL"), nullable=True
+    )
     nivel_educativo: Mapped[NivelEducativo] = mapped_column(Enum(NivelEducativo, name="nivel_educativo"))
     nombre_cargo: Mapped[str] = mapped_column(String(150))
     tipo_cargo: Mapped[TipoCargo] = mapped_column(Enum(TipoCargo, name="tipo_cargo"))
@@ -178,6 +227,7 @@ class Empleado(Base):
     # Datos bancarios y de afiliación al sistema de seguridad social. Son
     # nullable por el mismo motivo que numero_documento: en una base que ya
     # tenía empleados antes de este cambio, esos registros no traen el dato.
+    banco: Mapped[str | None] = mapped_column(String(120), nullable=True)
     tipo_cuenta: Mapped[TipoCuenta | None] = mapped_column(Enum(TipoCuenta, name="tipo_cuenta"), nullable=True)
     numero_cuenta: Mapped[str | None] = mapped_column(String(40), nullable=True)
     eps: Mapped[str | None] = mapped_column(String(120), nullable=True)
@@ -208,7 +258,16 @@ class Empleado(Base):
     nominas: Mapped[list["Nomina"]] = relationship(
         back_populates="empleado", cascade="all, delete-orphan"
     )
+    contratos: Mapped[list["Contrato"]] = relationship(
+        back_populates="empleado",
+        cascade="all, delete-orphan",
+        order_by="Contrato.fecha_inicio.desc()",
+        foreign_keys="Contrato.empleado_id",
+    )
     empresa: Mapped["Empresa | None"] = relationship(back_populates="empleados")
+    jefe_inmediato: Mapped["Empleado | None"] = relationship(
+        remote_side=[id], foreign_keys=[jefe_inmediato_id]
+    )
 
 
 class Estudio(Base):
@@ -233,6 +292,73 @@ class Experiencia(Base):
     periodo: Mapped[str] = mapped_column(String(100))
 
     empleado: Mapped["Empleado"] = relationship(back_populates="experiencias")
+
+
+# ---------------------------------------------------------------------------
+# Historial contractual
+# ---------------------------------------------------------------------------
+
+class Contrato(Base):
+    """Un período contractual de un empleado. El historial contractual de la
+    persona es, sencillamente, la lista de sus contratos (los más antiguos
+    normalmente "Terminado" y el último "Activo"). Las prórrogas y otrosí no
+    son contratos nuevos: son modificaciones de uno existente, por eso viven
+    en ModificacionContrato en lugar de crear otro registro de Contrato."""
+
+    __tablename__ = "contratos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empleado_id: Mapped[int] = mapped_column(ForeignKey("empleados.id", ondelete="CASCADE"), index=True)
+    tipo_contrato: Mapped[TipoContrato] = mapped_column(Enum(TipoContrato, name="tipo_contrato"))
+    fecha_inicio: Mapped[date] = mapped_column(Date)
+    # Nulo para término indefinido, que no tiene fecha de finalización.
+    fecha_fin: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # En días; no se valida contra los topes legales (2 meses general, o 1/5
+    # del plazo si el contrato a término fijo dura menos de un año) porque
+    # eso depende de acuerdos particulares que Talento Humano conoce mejor.
+    periodo_prueba_dias: Mapped[int | None] = mapped_column(nullable=True)
+    # El cargo y el salario quedan fijados en el texto del contrato: pueden
+    # no coincidir con el cargo actual del empleado si hubo un ascenso que
+    # todavía no se formaliza en un otrosí, o con la nómina ya liquidada.
+    cargo_contractual: Mapped[str] = mapped_column(String(150))
+    salario: Mapped[float] = mapped_column(Numeric(12, 2))
+    proyecto_id: Mapped[int | None] = mapped_column(
+        ForeignKey("proyectos.id", ondelete="SET NULL"), nullable=True
+    )
+    centro_costos: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    modalidad: Mapped[ModalidadTrabajo] = mapped_column(
+        Enum(ModalidadTrabajo, name="modalidad_trabajo"), default=ModalidadTrabajo.presencial
+    )
+    estado: Mapped[EstadoContrato] = mapped_column(
+        Enum(EstadoContrato, name="estado_contrato"), default=EstadoContrato.activo
+    )
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    empleado: Mapped["Empleado"] = relationship(back_populates="contratos", foreign_keys=[empleado_id])
+    proyecto: Mapped["Proyecto | None"] = relationship()
+    modificaciones: Mapped[list["ModificacionContrato"]] = relationship(
+        back_populates="contrato", cascade="all, delete-orphan", order_by="ModificacionContrato.fecha.desc()"
+    )
+
+
+class ModificacionContrato(Base):
+    """Una prórroga o un otrosí sobre un contrato existente. Una prórroga
+    trae una nueva fecha de finalización, que se aplica automáticamente al
+    contrato al crearla (ver routers/contratos.py)."""
+
+    __tablename__ = "modificaciones_contrato"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    contrato_id: Mapped[int] = mapped_column(ForeignKey("contratos.id", ondelete="CASCADE"), index=True)
+    tipo: Mapped[TipoModificacionContrato] = mapped_column(
+        Enum(TipoModificacionContrato, name="tipo_modificacion_contrato")
+    )
+    fecha: Mapped[date] = mapped_column(Date)
+    detalle: Mapped[str] = mapped_column(Text)
+    # Solo aplica a las prórrogas: la nueva fecha de finalización del contrato.
+    nueva_fecha_fin: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    contrato: Mapped["Contrato"] = relationship(back_populates="modificaciones")
 
 
 # ---------------------------------------------------------------------------
