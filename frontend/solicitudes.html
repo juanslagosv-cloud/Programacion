@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solicitudes · Ecodes Talento Humano</title>
+  <link rel="icon" href="assets/logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <div id="sidebar-slot"></div>
+    <div id="topbar-slot"></div>
+
+    <main class="main page-enter">
+      <p class="text-muted" style="font-size:13px;margin:0 0 16px;max-width:760px;">
+        Flujo de aprobación: cada solicitud la revisa primero el jefe inmediato del empleado; solo si la
+        aprueba, pasa a Talento Humano para la decisión final. Si el jefe la rechaza, ahí termina.
+      </p>
+      <div class="flex-between mb-18" style="flex-wrap:wrap; gap:12px;">
+        <div class="filters-bar" style="margin-bottom:0;">
+          <select id="f-tipo">
+            <option value="">Todos los tipos</option>
+            <option>Vacaciones</option>
+            <option>Incapacidad</option>
+            <option>Permiso</option>
+            <option>Licencia remunerada</option>
+            <option>Licencia no remunerada</option>
+            <option>Calamidad doméstica</option>
+            <option>Trabajo remoto</option>
+            <option>Horas extras</option>
+            <option>Ausencia</option>
+            <option>Suspensión</option>
+            <option>Cambio salarial</option>
+            <option>Cambio de cargo</option>
+            <option>Cambio de proyecto</option>
+          </select>
+          <select id="f-estado">
+            <option value="">Todos los estados</option>
+            <option value="pendiente_jefe">Pendiente del jefe</option>
+            <option value="rechazada_jefe">Rechazada por el jefe</option>
+            <option value="pendiente_th">Pendiente de Talento Humano</option>
+            <option value="rechazada_th">Rechazada por Talento Humano</option>
+            <option value="aprobada">Aprobada</option>
+          </select>
+        </div>
+        <button class="btn btn-primary write-only" id="btn-nueva-solicitud">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Registrar solicitud
+        </button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>Tipo</th>
+              <th>Fechas</th>
+              <th>Jefe inmediato</th>
+              <th>Talento Humano</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="solicitudes-tbody">
+            <tr><td colspan="7" class="table-empty">Cargando solicitudes…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/solicitudes.js"></script>
+</body>
+</html>
