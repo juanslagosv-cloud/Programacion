@@ -466,6 +466,209 @@
         </div>
 
         <div class="panel-section">
+          <div class="panel-section-title">
+            Certificaciones
+            <button class="btn btn-ghost btn-sm write-only" data-toggle="form-certificacion">+ Agregar</button>
+          </div>
+          <form id="form-certificacion" class="hidden" style="margin-bottom:12px;">
+            <div class="field-row">
+              <input type="text" placeholder="Nombre de la certificación" name="nombre" required>
+              <input type="text" placeholder="Entidad (opcional)" name="entidad">
+            </div>
+            <div class="field-row" style="align-items:end;">
+              <input type="date" placeholder="Obtención" name="fecha_obtencion">
+              <input type="date" placeholder="Vencimiento" name="fecha_vencimiento">
+              <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
+          </form>
+          <div id="lista-certificaciones">
+            ${
+              e.certificaciones.length
+                ? e.certificaciones
+                    .map(
+                      (c) => `
+              <div class="list-item">
+                <div>
+                  <div class="list-item-main">${escapeHtml(c.nombre)}</div>
+                  <div class="list-item-sub">${c.entidad ? escapeHtml(c.entidad) + " · " : ""}vence ${formatDate(c.fecha_vencimiento)}</div>
+                </div>
+                <button class="list-item-remove write-only" data-remove-certificacion="${c.id}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+              </div>`
+                    )
+                    .join("")
+                : '<p class="text-faint">Sin certificaciones registradas.</p>'
+            }
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-section-title">
+            Documentos del expediente
+            <button class="btn btn-ghost btn-sm write-only" data-toggle="form-documento">+ Agregar</button>
+          </div>
+          <form id="form-documento" class="hidden" style="margin-bottom:12px;">
+            <div class="field-row" style="align-items:end;">
+              <select name="tipo" required>
+                <option value="Hoja de vida">Hoja de vida</option>
+                <option value="Cédula">Cédula</option>
+                <option value="Certificado EPS">Certificado EPS</option>
+                <option value="Certificado bancario">Certificado bancario</option>
+                <option value="Antecedentes judiciales">Antecedentes judiciales</option>
+                <option value="Otro">Otro</option>
+              </select>
+              <input type="text" placeholder="Nombre del archivo (opcional)" name="nombre_archivo">
+              <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
+          </form>
+          <div id="lista-documentos">
+            ${
+              e.documentos.length
+                ? e.documentos
+                    .map(
+                      (d) => `
+              <div class="list-item">
+                <div>
+                  <div class="list-item-main">${escapeHtml(d.tipo)}</div>
+                  <div class="list-item-sub">${d.nombre_archivo ? escapeHtml(d.nombre_archivo) + " · " : ""}cargado ${formatDate(d.fecha_cargue)}</div>
+                </div>
+                <button class="list-item-remove write-only" data-remove-documento="${d.id}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+              </div>`
+                    )
+                    .join("")
+                : '<p class="text-faint">Sin documentos cargados.</p>'
+            }
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-section-title">
+            Evaluaciones de desempeño
+            <button class="btn btn-ghost btn-sm write-only" data-toggle="form-evaluacion">+ Agregar</button>
+          </div>
+          <form id="form-evaluacion" class="hidden" style="margin-bottom:12px;">
+            <div class="field-row">
+              <input type="text" placeholder="Período (ej. 2026-S1)" name="periodo" required>
+              <input type="date" placeholder="Fecha programada" name="fecha_programada" required>
+            </div>
+            <div class="field-row" style="align-items:end;">
+              <input type="date" placeholder="Fecha realizada (opcional)" name="fecha_realizada">
+              <input type="text" placeholder="Resultado (opcional)" name="resultado">
+              <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
+          </form>
+          <div id="lista-evaluaciones">
+            ${
+              e.evaluaciones.length
+                ? e.evaluaciones
+                    .map(
+                      (ev) => `
+              <div class="list-item">
+                <div>
+                  <div class="list-item-main">Evaluación ${escapeHtml(ev.periodo)}</div>
+                  <div class="list-item-sub">
+                    ${ev.fecha_realizada ? `Realizada el ${formatDate(ev.fecha_realizada)}${ev.resultado ? " · " + escapeHtml(ev.resultado) : ""}` : `Pendiente · programada para ${formatDate(ev.fecha_programada)}`}
+                  </div>
+                </div>
+                <button class="list-item-remove write-only" data-remove-evaluacion="${ev.id}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+              </div>`
+                    )
+                    .join("")
+                : '<p class="text-faint">Sin evaluaciones registradas.</p>'
+            }
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-section-title">
+            Capacitaciones
+            <button class="btn btn-ghost btn-sm write-only" data-toggle="form-capacitacion">+ Agregar</button>
+          </div>
+          <form id="form-capacitacion" class="hidden" style="margin-bottom:12px;">
+            <div class="field-row">
+              <input type="text" placeholder="Nombre de la capacitación" name="nombre" required>
+              <input type="date" placeholder="Fecha programada" name="fecha_programada" required>
+            </div>
+            <div class="field-row" style="align-items:end;">
+              <input type="date" placeholder="Fecha realizada (opcional)" name="fecha_realizada">
+              <input type="number" placeholder="Horas (opcional)" name="horas" min="0">
+              <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
+          </form>
+          <div id="lista-capacitaciones">
+            ${
+              e.capacitaciones.length
+                ? e.capacitaciones
+                    .map(
+                      (cap) => `
+              <div class="list-item">
+                <div>
+                  <div class="list-item-main">${escapeHtml(cap.nombre)}</div>
+                  <div class="list-item-sub">
+                    ${cap.fecha_realizada ? `Realizada el ${formatDate(cap.fecha_realizada)}` : `Pendiente · programada para ${formatDate(cap.fecha_programada)}`}${cap.horas ? ` · ${cap.horas}h` : ""}
+                  </div>
+                </div>
+                <button class="list-item-remove write-only" data-remove-capacitacion="${cap.id}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+              </div>`
+                    )
+                    .join("")
+                : '<p class="text-faint">Sin capacitaciones registradas.</p>'
+            }
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-section-title">
+            Exámenes médicos
+            <button class="btn btn-ghost btn-sm write-only" data-toggle="form-examen">+ Agregar</button>
+          </div>
+          <form id="form-examen" class="hidden" style="margin-bottom:12px;">
+            <div class="field-row">
+              <select name="tipo" required>
+                <option value="Ingreso">Ingreso</option>
+                <option value="Periódico">Periódico</option>
+                <option value="Retiro">Retiro</option>
+              </select>
+              <input type="date" placeholder="Fecha realizado" name="fecha_realizado" required>
+            </div>
+            <div class="field-row" style="align-items:end;">
+              <input type="date" placeholder="Próximo examen (opcional)" name="fecha_proximo">
+              <input type="text" placeholder="Concepto (opcional)" name="concepto">
+              <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
+          </form>
+          <div id="lista-examenes">
+            ${
+              e.examenes_medicos.length
+                ? e.examenes_medicos
+                    .map(
+                      (ex) => `
+              <div class="list-item">
+                <div>
+                  <div class="list-item-main">Examen ${escapeHtml(ex.tipo)}</div>
+                  <div class="list-item-sub">
+                    Realizado el ${formatDate(ex.fecha_realizado)}${ex.fecha_proximo ? ` · próximo ${formatDate(ex.fecha_proximo)}` : ""}${ex.concepto ? " · " + escapeHtml(ex.concepto) : ""}
+                  </div>
+                </div>
+                <button class="list-item-remove write-only" data-remove-examen="${ex.id}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+              </div>`
+                    )
+                    .join("")
+                : '<p class="text-faint">Sin exámenes médicos registrados.</p>'
+            }
+          </div>
+        </div>
+
+        <div class="panel-section">
           <div class="panel-section-title">Historial de movimientos</div>
           <div id="lista-historial"><p class="text-faint">Cargando…</p></div>
         </div>
@@ -570,6 +773,144 @@
           await api.del(`/participaciones/${btn.dataset.removeParticipacion}`);
           openEmpleadoPanel(e.id);
           loadEmpleados();
+        } catch (err) {
+          handleApiError(err);
+        }
+      });
+    });
+
+    const formCertificacion = document.getElementById("form-certificacion");
+    formCertificacion.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(formCertificacion);
+      try {
+        await api.post(`/empleados/${e.id}/certificaciones`, {
+          nombre: fd.get("nombre"),
+          entidad: fd.get("entidad") || null,
+          fecha_obtencion: fd.get("fecha_obtencion") || null,
+          fecha_vencimiento: fd.get("fecha_vencimiento") || null,
+        });
+        showToast("Certificación agregada");
+        openEmpleadoPanel(e.id);
+      } catch (err) {
+        handleApiError(err);
+      }
+    });
+    document.querySelectorAll("[data-remove-certificacion]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api.del(`/empleados/${e.id}/certificaciones/${btn.dataset.removeCertificacion}`);
+          openEmpleadoPanel(e.id);
+        } catch (err) {
+          handleApiError(err);
+        }
+      });
+    });
+
+    const formDocumento = document.getElementById("form-documento");
+    formDocumento.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(formDocumento);
+      try {
+        await api.post(`/empleados/${e.id}/documentos`, {
+          tipo: fd.get("tipo"),
+          nombre_archivo: fd.get("nombre_archivo") || null,
+        });
+        showToast("Documento agregado");
+        openEmpleadoPanel(e.id);
+      } catch (err) {
+        handleApiError(err);
+      }
+    });
+    document.querySelectorAll("[data-remove-documento]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api.del(`/empleados/${e.id}/documentos/${btn.dataset.removeDocumento}`);
+          openEmpleadoPanel(e.id);
+        } catch (err) {
+          handleApiError(err);
+        }
+      });
+    });
+
+    const formEvaluacion = document.getElementById("form-evaluacion");
+    formEvaluacion.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(formEvaluacion);
+      try {
+        await api.post(`/empleados/${e.id}/evaluaciones`, {
+          periodo: fd.get("periodo"),
+          fecha_programada: fd.get("fecha_programada"),
+          fecha_realizada: fd.get("fecha_realizada") || null,
+          resultado: fd.get("resultado") || null,
+        });
+        showToast("Evaluación agregada");
+        openEmpleadoPanel(e.id);
+      } catch (err) {
+        handleApiError(err);
+      }
+    });
+    document.querySelectorAll("[data-remove-evaluacion]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api.del(`/empleados/${e.id}/evaluaciones/${btn.dataset.removeEvaluacion}`);
+          openEmpleadoPanel(e.id);
+        } catch (err) {
+          handleApiError(err);
+        }
+      });
+    });
+
+    const formCapacitacion = document.getElementById("form-capacitacion");
+    formCapacitacion.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(formCapacitacion);
+      try {
+        await api.post(`/empleados/${e.id}/capacitaciones`, {
+          nombre: fd.get("nombre"),
+          fecha_programada: fd.get("fecha_programada"),
+          fecha_realizada: fd.get("fecha_realizada") || null,
+          horas: fd.get("horas") ? Number(fd.get("horas")) : null,
+        });
+        showToast("Capacitación agregada");
+        openEmpleadoPanel(e.id);
+      } catch (err) {
+        handleApiError(err);
+      }
+    });
+    document.querySelectorAll("[data-remove-capacitacion]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api.del(`/empleados/${e.id}/capacitaciones/${btn.dataset.removeCapacitacion}`);
+          openEmpleadoPanel(e.id);
+        } catch (err) {
+          handleApiError(err);
+        }
+      });
+    });
+
+    const formExamen = document.getElementById("form-examen");
+    formExamen.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(formExamen);
+      try {
+        await api.post(`/empleados/${e.id}/examenes-medicos`, {
+          tipo: fd.get("tipo"),
+          fecha_realizado: fd.get("fecha_realizado"),
+          fecha_proximo: fd.get("fecha_proximo") || null,
+          concepto: fd.get("concepto") || null,
+        });
+        showToast("Examen médico agregado");
+        openEmpleadoPanel(e.id);
+      } catch (err) {
+        handleApiError(err);
+      }
+    });
+    document.querySelectorAll("[data-remove-examen]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api.del(`/empleados/${e.id}/examenes-medicos/${btn.dataset.removeExamen}`);
+          openEmpleadoPanel(e.id);
         } catch (err) {
           handleApiError(err);
         }

@@ -3,6 +3,7 @@ from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 
 from app.models import (
+    Area,
     EstadoAprobacion,
     EstadoContrato,
     Empleado,
@@ -10,8 +11,16 @@ from app.models import (
     Novedad,
     PeriodicidadPago,
     Proyecto,
+    TipoDocumentoExpediente,
     TipoNovedad,
 )
+
+# Tipos de documento que se consideran obligatorios para la alerta de
+# "documento faltante". "Otro" no cuenta porque no es un tipo específico que
+# se pueda echar en falta.
+DOCUMENTOS_REQUERIDOS = [
+    t for t in TipoDocumentoExpediente if t != TipoDocumentoExpediente.otro
+]
 
 # En nómina el mes siempre se cuenta como 30 días, sin importar los días
 # calendario reales: una quincena son 15 días y un mes completo 30.
@@ -390,3 +399,86 @@ def porcentaje_rotacion_proyecto(proyecto: Proyecto) -> float:
 
 def novedades_del_mes(empleado: Empleado, periodo: str) -> int:
     return len([n for n in empleado.novedades if n.fecha.strftime("%Y-%m") == periodo])
+
+
+# ---------------------------------------------------------------------------
+# Organigrama: árboles de jefaturas/equipos y de dependencias entre áreas
+# ---------------------------------------------------------------------------
+
+def construir_arbol_jefaturas(empleados: list[Empleado]) -> list[dict]:
+    """A partir de la lista plana de empleados (con jefe_inmediato_id), arma
+    el árbol de jefaturas: cada jefe con la lista de quienes le reportan
+    directamente ("Equipos"), recursivamente. Las raíces son quienes no
+    tienen jefe inmediato asignado."""
+    por_jefe: dict[int | None, list[Empleado]] = {}
+    for e in empleados:
+        por_jefe.setdefault(e.jefe_inmediato_id, []).append(e)
+
+    def nodo(empleado: Empleado) -> dict:
+        return {
+            "empleado_id": empleado.id,
+            "nombre": empleado.nombre_completo,
+            "nombre_cargo": empleado.nombre_cargo,
+            "foto_url": empleado.foto_url,
+            "reportes": [nodo(hijo) for hijo in por_jefe.get(empleado.id, [])],
+        }
+
+    return [nodo(e) for e in por_jefe.get(None, [])]
+
+
+def construir_arbol_areas(areas: list[Area]) -> list[dict]:
+    """Igual que construir_arbol_jefaturas pero para la jerarquía de áreas
+    (Dependencias): un área raíz es la que no depende de ninguna otra."""
+    por_padre: dict[int | None, list[Area]] = {}
+    for a in areas:
+        por_padre.setdefault(a.area_padre_id, []).append(a)
+
+    def nodo(area: Area) -> dict:
+        return {
+            "area_id": area.id,
+            "nombre": area.nombre,
+            "responsable_nombre": area.responsable.nombre_completo if area.responsable else None,
+            "total_empleados": contar_empleados_area(area),
+            "subareas": [nodo(hija) for hija in por_padre.get(area.id, [])],
+        }
+
+    return [nodo(a) for a in por_padre.get(None, [])]
+
+
+def contar_empleados_area(area: Area) -> int:
+    """El empleado sigue guardando su área como texto libre (`Empleado.area`),
+    así que este conteo es por coincidencia de nombre, sin importar
+    mayúsculas — a propósito, para no obligar a enlazar cada empleado ya
+    existente al catálogo formal de áreas que introduce el organigrama."""
+    if not area.empresa:
+        return 0
+    nombre = area.nombre.strip().lower()
+    return sum(
+        1 for e in area.empresa.empleados if (e.area or "").strip().lower() == nombre
+    )
+
+
+# ---------------------------------------------------------------------------
+# Alertas del expediente del empleado
+# ---------------------------------------------------------------------------
+
+UMBRAL_DIAS_CONTRATO_POR_VENCER = 30
+UMBRAL_DIAS_PERIODO_PRUEBA = 10
+UMBRAL_DIAS_CERTIFICACION_POR_VENCER = 30
+UMBRAL_DIAS_EXAMEN_MEDICO_PROXIMO = 30
+
+
+def dias_para_fin_periodo_prueba(contrato) -> int | None:
+    """Días que faltan para que termine el período de prueba de un contrato,
+    o None si el contrato no tiene período de prueba registrado."""
+    if not contrato.periodo_prueba_dias:
+        return None
+    fin = contrato.fecha_inicio + timedelta(days=contrato.periodo_prueba_dias)
+    return (fin - date.today()).days
+
+
+def tipos_documento_faltantes(empleado: Empleado) -> list[TipoDocumentoExpediente]:
+    """Tipos de documento obligatorios que el empleado todavía no tiene
+    cargados en su expediente."""
+    tipos_presentes = {d.tipo for d in empleado.documentos}
+    return [t for t in DOCUMENTOS_REQUERIDOS if t not in tipos_presentes]

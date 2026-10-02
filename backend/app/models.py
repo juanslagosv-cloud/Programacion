@@ -159,6 +159,36 @@ class EstadoAprobacion(str, enum.Enum):
 
 
 # ---------------------------------------------------------------------------
+# Organigrama (áreas, cargos y vacantes)
+# ---------------------------------------------------------------------------
+
+class EstadoVacante(str, enum.Enum):
+    abierta = "Abierta"
+    en_proceso = "En proceso"
+    cerrada = "Cerrada"
+
+
+# ---------------------------------------------------------------------------
+# Expediente del empleado (alertas: certificaciones, documentos,
+# evaluaciones, capacitaciones y exámenes médicos)
+# ---------------------------------------------------------------------------
+
+class TipoDocumentoExpediente(str, enum.Enum):
+    hoja_de_vida = "Hoja de vida"
+    cedula = "Cédula"
+    certificado_eps = "Certificado EPS"
+    certificado_bancario = "Certificado bancario"
+    antecedentes_judiciales = "Antecedentes judiciales"
+    otro = "Otro"
+
+
+class TipoExamenMedico(str, enum.Enum):
+    ingreso = "Ingreso"
+    periodico = "Periódico"
+    retiro = "Retiro"
+
+
+# ---------------------------------------------------------------------------
 # Usuarios (autenticación)
 # ---------------------------------------------------------------------------
 
@@ -296,6 +326,21 @@ class Empleado(Base):
         order_by="Solicitud.fecha_solicitud.desc()",
         foreign_keys="Solicitud.empleado_id",
     )
+    certificaciones: Mapped[list["Certificacion"]] = relationship(
+        back_populates="empleado", cascade="all, delete-orphan", order_by="Certificacion.fecha_vencimiento"
+    )
+    documentos: Mapped[list["Documento"]] = relationship(
+        back_populates="empleado", cascade="all, delete-orphan", order_by="Documento.fecha_cargue.desc()"
+    )
+    evaluaciones: Mapped[list["Evaluacion"]] = relationship(
+        back_populates="empleado", cascade="all, delete-orphan", order_by="Evaluacion.fecha_programada.desc()"
+    )
+    capacitaciones: Mapped[list["Capacitacion"]] = relationship(
+        back_populates="empleado", cascade="all, delete-orphan", order_by="Capacitacion.fecha_programada.desc()"
+    )
+    examenes_medicos: Mapped[list["ExamenMedico"]] = relationship(
+        back_populates="empleado", cascade="all, delete-orphan", order_by="ExamenMedico.fecha_realizado.desc()"
+    )
     empresa: Mapped["Empresa | None"] = relationship(back_populates="empleados")
     jefe_inmediato: Mapped["Empleado | None"] = relationship(
         remote_side=[id], foreign_keys=[jefe_inmediato_id]
@@ -324,6 +369,88 @@ class Experiencia(Base):
     periodo: Mapped[str] = mapped_column(String(100))
 
     empleado: Mapped["Empleado"] = relationship(back_populates="experiencias")
+
+
+class Certificacion(Base):
+    """Una certificación o licencia del empleado (p. ej. trabajo en alturas,
+    manejo de sustancias químicas) que puede vencerse — de ahí la alerta de
+    certificación próxima a vencer."""
+
+    __tablename__ = "certificaciones"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empleado_id: Mapped[int] = mapped_column(ForeignKey("empleados.id", ondelete="CASCADE"))
+    nombre: Mapped[str] = mapped_column(String(200))
+    entidad: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    fecha_obtencion: Mapped[date | None] = mapped_column(Date, nullable=True)
+    fecha_vencimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    empleado: Mapped["Empleado"] = relationship(back_populates="certificaciones")
+
+
+class Documento(Base):
+    """Un documento del expediente del empleado. La alerta de "documento
+    faltante" compara, por cada empleado, los tipos de DOCUMENTOS_REQUERIDOS
+    (ver utils.py) contra los tipos que ya tienen un registro aquí."""
+
+    __tablename__ = "documentos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empleado_id: Mapped[int] = mapped_column(ForeignKey("empleados.id", ondelete="CASCADE"))
+    tipo: Mapped[TipoDocumentoExpediente] = mapped_column(Enum(TipoDocumentoExpediente, name="tipo_documento_expediente"))
+    nombre_archivo: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    fecha_cargue: Mapped[date] = mapped_column(Date, server_default=func.current_date())
+
+    empleado: Mapped["Empleado"] = relationship(back_populates="documentos")
+
+
+class Evaluacion(Base):
+    """Evaluación de desempeño de un período. `fecha_realizada` nula significa
+    que todavía está pendiente — de ahí sale la alerta correspondiente."""
+
+    __tablename__ = "evaluaciones"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empleado_id: Mapped[int] = mapped_column(ForeignKey("empleados.id", ondelete="CASCADE"))
+    periodo: Mapped[str] = mapped_column(String(50))
+    fecha_programada: Mapped[date] = mapped_column(Date)
+    fecha_realizada: Mapped[date | None] = mapped_column(Date, nullable=True)
+    resultado: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    comentario: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    empleado: Mapped["Empleado"] = relationship(back_populates="evaluaciones")
+
+
+class Capacitacion(Base):
+    """Una capacitación programada para el empleado. `fecha_realizada` nula
+    significa que todavía está pendiente."""
+
+    __tablename__ = "capacitaciones"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empleado_id: Mapped[int] = mapped_column(ForeignKey("empleados.id", ondelete="CASCADE"))
+    nombre: Mapped[str] = mapped_column(String(200))
+    fecha_programada: Mapped[date] = mapped_column(Date)
+    fecha_realizada: Mapped[date | None] = mapped_column(Date, nullable=True)
+    horas: Mapped[int | None] = mapped_column(nullable=True)
+
+    empleado: Mapped["Empleado"] = relationship(back_populates="capacitaciones")
+
+
+class ExamenMedico(Base):
+    """Examen médico ocupacional (ingreso, periódico o retiro). La alerta de
+    examen médico próximo se calcula sobre `fecha_proximo`."""
+
+    __tablename__ = "examenes_medicos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empleado_id: Mapped[int] = mapped_column(ForeignKey("empleados.id", ondelete="CASCADE"))
+    tipo: Mapped[TipoExamenMedico] = mapped_column(Enum(TipoExamenMedico, name="tipo_examen_medico"))
+    fecha_realizado: Mapped[date] = mapped_column(Date)
+    fecha_proximo: Mapped[date | None] = mapped_column(Date, nullable=True)
+    concepto: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    empleado: Mapped["Empleado"] = relationship(back_populates="examenes_medicos")
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +569,75 @@ class Solicitud(Base):
 
     empleado: Mapped["Empleado"] = relationship(back_populates="solicitudes")
     proyecto_propuesto: Mapped["Proyecto | None"] = relationship()
+
+
+# ---------------------------------------------------------------------------
+# Organigrama: áreas, cargos y vacantes
+# ---------------------------------------------------------------------------
+
+class Area(Base):
+    """Un área de la empresa. `area_padre_id` arma la jerarquía de
+    dependencias entre áreas (una subárea depende de otra), y `responsable_id`
+    es quién tiene la jefatura del área — ambos opcionales porque no toda
+    área tiene todavía un responsable o una matriz de la que depender."""
+
+    __tablename__ = "areas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id", ondelete="CASCADE"), index=True)
+    nombre: Mapped[str] = mapped_column(String(150))
+    area_padre_id: Mapped[int | None] = mapped_column(ForeignKey("areas.id", ondelete="SET NULL"), nullable=True)
+    responsable_id: Mapped[int | None] = mapped_column(
+        ForeignKey("empleados.id", ondelete="SET NULL"), nullable=True
+    )
+
+    empresa: Mapped["Empresa"] = relationship()
+    area_padre: Mapped["Area | None"] = relationship(remote_side=[id])
+    responsable: Mapped["Empleado | None"] = relationship()
+
+
+class Cargo(Base):
+    """Catálogo formal de cargos de la empresa, independiente del texto libre
+    `Empleado.nombre_cargo`: sirve para definir vacantes y la jerarquía de
+    cargos (`cargo_superior_id`) sin forzar a que cada empleado ya existente
+    quede amarrado a un cargo del catálogo."""
+
+    __tablename__ = "cargos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id", ondelete="CASCADE"), index=True)
+    area_id: Mapped[int | None] = mapped_column(ForeignKey("areas.id", ondelete="SET NULL"), nullable=True)
+    nombre: Mapped[str] = mapped_column(String(150))
+    cargo_superior_id: Mapped[int | None] = mapped_column(ForeignKey("cargos.id", ondelete="SET NULL"), nullable=True)
+
+    empresa: Mapped["Empresa"] = relationship()
+    area: Mapped["Area | None"] = relationship()
+    cargo_superior: Mapped["Cargo | None"] = relationship(remote_side=[id])
+
+
+class Vacante(Base):
+    """Una vacante abierta. No crea un Empleado por sí sola: cuando se llena,
+    Talento Humano registra al nuevo empleado por la pantalla de Empleados
+    como siempre, y simplemente cierra la vacante aquí."""
+
+    __tablename__ = "vacantes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id", ondelete="CASCADE"), index=True)
+    area_id: Mapped[int | None] = mapped_column(ForeignKey("areas.id", ondelete="SET NULL"), nullable=True)
+    cargo_id: Mapped[int | None] = mapped_column(ForeignKey("cargos.id", ondelete="SET NULL"), nullable=True)
+    titulo: Mapped[str] = mapped_column(String(150))
+    motivo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    salario_ofrecido: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    fecha_apertura: Mapped[date] = mapped_column(Date, server_default=func.current_date())
+    fecha_cierre_esperada: Mapped[date | None] = mapped_column(Date, nullable=True)
+    fecha_cierre_real: Mapped[date | None] = mapped_column(Date, nullable=True)
+    estado: Mapped[EstadoVacante] = mapped_column(Enum(EstadoVacante, name="estado_vacante"), default=EstadoVacante.abierta)
+    notas: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    empresa: Mapped["Empresa"] = relationship()
+    area: Mapped["Area | None"] = relationship()
+    cargo: Mapped["Cargo | None"] = relationship()
 
 
 # ---------------------------------------------------------------------------

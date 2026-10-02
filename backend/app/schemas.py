@@ -9,6 +9,7 @@ from app.models import (
     EstadoContrato,
     EstadoEmpleado,
     EstadoProyecto,
+    EstadoVacante,
     Genero,
     ModalidadTrabajo,
     NivelEducativo,
@@ -19,6 +20,8 @@ from app.models import (
     TipoContrato,
     TipoCuenta,
     TipoDocumento,
+    TipoDocumentoExpediente,
+    TipoExamenMedico,
     TipoModificacionContrato,
     TipoNovedad,
     TipoSolicitud,
@@ -87,6 +90,96 @@ class ExperienciaCreate(ExperienciaBase):
 
 
 class ExperienciaOut(ExperienciaBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    empleado_id: int
+
+
+# ---------------------------------------------------------------------------
+# Expediente del empleado (certificaciones, documentos, evaluaciones,
+# capacitaciones y exámenes médicos — soportan las alertas correspondientes)
+# ---------------------------------------------------------------------------
+
+class CertificacionBase(BaseModel):
+    nombre: str
+    entidad: Optional[str] = None
+    fecha_obtencion: Optional[date] = None
+    fecha_vencimiento: Optional[date] = None
+
+
+class CertificacionCreate(CertificacionBase):
+    pass
+
+
+class CertificacionOut(CertificacionBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    empleado_id: int
+
+
+class DocumentoBase(BaseModel):
+    tipo: TipoDocumentoExpediente
+    nombre_archivo: Optional[str] = Field(default=None, max_length=300)
+
+
+class DocumentoCreate(DocumentoBase):
+    pass
+
+
+class DocumentoOut(DocumentoBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    empleado_id: int
+    fecha_cargue: date
+
+
+class EvaluacionBase(BaseModel):
+    periodo: str
+    fecha_programada: date
+    fecha_realizada: Optional[date] = None
+    resultado: Optional[str] = Field(default=None, max_length=200)
+    comentario: Optional[str] = None
+
+
+class EvaluacionCreate(EvaluacionBase):
+    pass
+
+
+class EvaluacionOut(EvaluacionBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    empleado_id: int
+
+
+class CapacitacionBase(BaseModel):
+    nombre: str
+    fecha_programada: date
+    fecha_realizada: Optional[date] = None
+    horas: Optional[int] = Field(default=None, ge=0)
+
+
+class CapacitacionCreate(CapacitacionBase):
+    pass
+
+
+class CapacitacionOut(CapacitacionBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    empleado_id: int
+
+
+class ExamenMedicoBase(BaseModel):
+    tipo: TipoExamenMedico
+    fecha_realizado: date
+    fecha_proximo: Optional[date] = None
+    concepto: Optional[str] = Field(default=None, max_length=200)
+
+
+class ExamenMedicoCreate(ExamenMedicoBase):
+    pass
+
+
+class ExamenMedicoOut(ExamenMedicoBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     empleado_id: int
@@ -282,6 +375,11 @@ class EmpleadoOut(EmpleadoBase):
     experiencias: list[ExperienciaOut] = []
     participaciones: list[ParticipacionOut] = []
     contratos: list[ContratoOut] = []
+    certificaciones: list[CertificacionOut] = []
+    documentos: list[DocumentoOut] = []
+    evaluaciones: list[EvaluacionOut] = []
+    capacitaciones: list[CapacitacionOut] = []
+    examenes_medicos: list[ExamenMedicoOut] = []
     porcentaje_total: float = 0
 
 
@@ -394,6 +492,108 @@ class SolicitudOut(SolicitudBase):
 
 
 # ---------------------------------------------------------------------------
+# Organigrama: áreas, cargos y vacantes
+# ---------------------------------------------------------------------------
+
+class AreaBase(BaseModel):
+    empresa_id: int
+    nombre: str
+    area_padre_id: Optional[int] = None
+    responsable_id: Optional[int] = None
+
+
+class AreaCreate(AreaBase):
+    pass
+
+
+class AreaUpdate(AreaBase):
+    pass
+
+
+class AreaOut(AreaBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    area_padre_nombre: Optional[str] = None
+    responsable_nombre: Optional[str] = None
+    total_empleados: int = 0
+
+
+class CargoBase(BaseModel):
+    empresa_id: int
+    area_id: Optional[int] = None
+    nombre: str
+    cargo_superior_id: Optional[int] = None
+
+
+class CargoCreate(CargoBase):
+    pass
+
+
+class CargoUpdate(CargoBase):
+    pass
+
+
+class CargoOut(CargoBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    area_nombre: Optional[str] = None
+    cargo_superior_nombre: Optional[str] = None
+
+
+class VacanteBase(BaseModel):
+    empresa_id: int
+    area_id: Optional[int] = None
+    cargo_id: Optional[int] = None
+    titulo: str
+    motivo: Optional[str] = None
+    salario_ofrecido: Optional[float] = Field(default=None, ge=0)
+    fecha_apertura: Optional[date] = None
+    fecha_cierre_esperada: Optional[date] = None
+    fecha_cierre_real: Optional[date] = None
+    estado: EstadoVacante = EstadoVacante.abierta
+    notas: Optional[str] = None
+
+
+class VacanteCreate(VacanteBase):
+    pass
+
+
+class VacanteUpdate(VacanteBase):
+    pass
+
+
+class VacanteOut(VacanteBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    fecha_apertura: date
+    area_nombre: Optional[str] = None
+    cargo_nombre: Optional[str] = None
+    dias_abierta: Optional[int] = None
+
+
+class NodoJefatura(BaseModel):
+    """Un nodo del árbol de jefaturas/equipos: un empleado y, recursivamente,
+    las personas que le reportan directamente."""
+
+    empleado_id: int
+    nombre: str
+    nombre_cargo: str
+    foto_url: Optional[str] = None
+    reportes: list["NodoJefatura"] = []
+
+
+class NodoArea(BaseModel):
+    """Un nodo del árbol de dependencias entre áreas: un área y,
+    recursivamente, las subáreas que dependen de ella."""
+
+    area_id: int
+    nombre: str
+    responsable_nombre: Optional[str] = None
+    total_empleados: int = 0
+    subareas: list["NodoArea"] = []
+
+
+# ---------------------------------------------------------------------------
 # Nómina
 # ---------------------------------------------------------------------------
 
@@ -478,11 +678,27 @@ class AlertaNomina(BaseModel):
     nivel: str
 
 
+class AlertaGenerica(BaseModel):
+    """Forma común para las alertas del expediente: contrato por vencer,
+    período de prueba, certificación por vencer, documento faltante,
+    evaluación pendiente, capacitación pendiente, examen médico próximo e
+    incapacidad activa. `tipo` identifica de cuál de esas se trata."""
+
+    tipo: str
+    empleado_id: int
+    empleado_nombre: str
+    foto_url: Optional[str] = None
+    descripcion: str
+    fecha: Optional[date] = None
+    nivel: str
+
+
 class AlertasResumen(BaseModel):
     vacaciones: list[AlertaVacaciones]
     sobreasignacion: list[AlertaSobreasignacion]
     nomina: list[AlertaNomina]
     novedades_sin_procesar: list[NovedadOut]
+    expediente: list[AlertaGenerica] = []
 
 
 class CumpleañosOut(BaseModel):

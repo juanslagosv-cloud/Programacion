@@ -11,7 +11,12 @@ from datetime import date, timedelta
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import (
+    Area,
+    Capacitacion,
+    Cargo,
+    Certificacion,
     Contrato,
+    Documento,
     Empleado,
     Empresa,
     EstadoAprobacion,
@@ -19,7 +24,10 @@ from app.models import (
     EstadoContrato,
     EstadoEmpleado,
     EstadoProyecto,
+    EstadoVacante,
     Estudio,
+    Evaluacion,
+    ExamenMedico,
     Experiencia,
     Genero,
     ModalidadTrabajo,
@@ -37,10 +45,13 @@ from app.models import (
     TipoContrato,
     TipoCuenta,
     TipoDocumento,
+    TipoDocumentoExpediente,
+    TipoExamenMedico,
     TipoModificacionContrato,
     TipoNovedad,
     TipoSolicitud,
     Usuario,
+    Vacante,
 )
 from app.security import hash_password
 from app.utils import fecha_de_pago, liquidar_nomina, periodos_de_pago
@@ -952,6 +963,217 @@ def run():
             c_maria, c_andres, c_laura_1, c_laura_2, c_diana, c_carlos, c_valentina,
             c_ricardo, c_paula, c_jorge_1, c_jorge_2, c_natalia, c_juan, c_esteban, c_sofia, c_pedro,
         ])
+
+        # -------------------------------------------------------------
+        # Organigrama: áreas, cargos y vacantes
+        #
+        # Es un catálogo aparte del texto libre que cada empleado ya trae en
+        # `area` y `nombre_cargo` (ver sección 4 del README): no se migra a
+        # nadie, pero el conteo de personas por área se hace por coincidencia
+        # de nombre para que ya se vea quién trabaja en cada una.
+        # -------------------------------------------------------------
+        a_ecodes_gerencia = Area(empresa=empresa_ecodes, nombre="Gerencia General", responsable=e_pedro)
+        a_ecodes_operaciones = Area(empresa=empresa_ecodes, nombre="Operaciones", area_padre=a_ecodes_gerencia)
+        a_ecodes_restauracion = Area(
+            empresa=empresa_ecodes, nombre="Operaciones - Restauración",
+            area_padre=a_ecodes_operaciones, responsable=e_laura,
+        )
+        a_ecodes_compensacion = Area(
+            empresa=empresa_ecodes, nombre="Operaciones - Compensación Forestal",
+            area_padre=a_ecodes_operaciones, responsable=e_diana,
+        )
+        a_ecodes_financiera = Area(
+            empresa=empresa_ecodes, nombre="Financiera y Administrativa",
+            area_padre=a_ecodes_gerencia, responsable=e_andres,
+        )
+        a_ecodes_th = Area(
+            empresa=empresa_ecodes, nombre="Talento Humano",
+            area_padre=a_ecodes_gerencia, responsable=e_maria,
+        )
+        a_ecodes_argentina = Area(
+            empresa=empresa_ecodes, nombre="Dirección Regional Argentina",
+            area_padre=a_ecodes_gerencia, responsable=e_ricardo,
+        )
+
+        a_envsol_direccion = Area(empresa=empresa_envsol, nombre="Dirección Envsol")
+        a_envsol_monitoreo = Area(
+            empresa=empresa_envsol, nombre="Operaciones - Monitoreo",
+            area_padre=a_envsol_direccion, responsable=e_carlos,
+        )
+        a_envsol_ambiental = Area(
+            empresa=empresa_envsol, nombre="Operaciones Ambientales",
+            area_padre=a_envsol_direccion, responsable=e_natalia,
+        )
+        a_envsol_financiera = Area(
+            empresa=empresa_envsol, nombre="Financiera y Administrativa",
+            area_padre=a_envsol_direccion, responsable=e_paula,
+        )
+        a_envsol_administrativa = Area(
+            empresa=empresa_envsol, nombre="Administrativa",
+            area_padre=a_envsol_direccion, responsable=e_sofia,
+        )
+        db.add_all([
+            a_ecodes_gerencia, a_ecodes_operaciones, a_ecodes_restauracion, a_ecodes_compensacion,
+            a_ecodes_financiera, a_ecodes_th, a_ecodes_argentina,
+            a_envsol_direccion, a_envsol_monitoreo, a_envsol_ambiental, a_envsol_financiera,
+            a_envsol_administrativa,
+        ])
+        db.flush()
+
+        cg_gerente_general = Cargo(empresa=empresa_ecodes, area=a_ecodes_gerencia, nombre="Gerente General")
+        cg_directora_th = Cargo(
+            empresa=empresa_ecodes, area=a_ecodes_th, nombre="Directora de Talento Humano",
+            cargo_superior=cg_gerente_general,
+        )
+        cg_coordinador_financiero = Cargo(
+            empresa=empresa_ecodes, area=a_ecodes_financiera, nombre="Coordinador Financiero y Administrativo",
+            cargo_superior=cg_gerente_general,
+        )
+        cg_coordinadora_restauracion = Cargo(
+            empresa=empresa_ecodes, area=a_ecodes_restauracion, nombre="Coordinadora de Restauración Ecológica",
+            cargo_superior=cg_gerente_general,
+        )
+        cg_ingeniero_junior = Cargo(
+            empresa=empresa_ecodes, area=a_ecodes_restauracion, nombre="Ingeniero Ambiental Junior",
+            cargo_superior=cg_coordinadora_restauracion,
+        )
+        cg_director_envsol = Cargo(empresa=empresa_envsol, area=a_envsol_direccion, nombre="Director Envsol")
+        cg_coordinador_monitoreo = Cargo(
+            empresa=empresa_envsol, area=a_envsol_monitoreo, nombre="Coordinador de Monitoreo de Biodiversidad",
+            cargo_superior=cg_director_envsol,
+        )
+        cg_biologa_campo = Cargo(
+            empresa=empresa_envsol, area=a_envsol_monitoreo, nombre="Bióloga de Campo",
+            cargo_superior=cg_coordinador_monitoreo,
+        )
+        db.add_all([
+            cg_gerente_general, cg_directora_th, cg_coordinador_financiero, cg_coordinadora_restauracion,
+            cg_ingeniero_junior, cg_director_envsol, cg_coordinador_monitoreo, cg_biologa_campo,
+        ])
+        db.flush()
+
+        db.add_all([
+            Vacante(
+                empresa=empresa_ecodes, area=a_ecodes_restauracion, cargo=cg_ingeniero_junior,
+                titulo="Ingeniero Ambiental Junior - Restauración",
+                motivo="Crecimiento del proyecto de restauración en Boyacá.",
+                salario_ofrecido=3_200_000,
+                fecha_apertura=dias_desde_hoy(-20), fecha_cierre_esperada=dias_desde_hoy(15),
+                estado=EstadoVacante.en_proceso, notas="Dos candidatos en entrevista final.",
+            ),
+            Vacante(
+                empresa=empresa_envsol, area=a_envsol_monitoreo,
+                titulo="Técnico de Campo - Monitoreo de Biodiversidad",
+                motivo="Reemplazo por renuncia.",
+                salario_ofrecido=2_800_000, fecha_apertura=dias_desde_hoy(-5),
+                estado=EstadoVacante.abierta,
+            ),
+            Vacante(
+                empresa=empresa_ecodes, area=a_ecodes_financiera,
+                titulo="Analista Financiero",
+                motivo="Nueva posición para apoyar el crecimiento de proyectos.",
+                fecha_apertura=dias_desde_hoy(-60), fecha_cierre_esperada=dias_desde_hoy(-10),
+                fecha_cierre_real=dias_desde_hoy(-8), estado=EstadoVacante.cerrada,
+                notas="Vacante cerrada; se contrató internamente.",
+            ),
+        ])
+
+        # -------------------------------------------------------------
+        # Expediente del empleado: certificaciones, documentos,
+        # evaluaciones, capacitaciones y exámenes médicos — soportan las
+        # alertas correspondientes. Se ajustan un par de fechas de
+        # contratos ya creados arriba para que las alertas de contrato por
+        # vencer y período de prueba también tengan un caso real.
+        # -------------------------------------------------------------
+        c_valentina.fecha_fin = dias_desde_hoy(20)
+        c_natalia.fecha_inicio = dias_desde_hoy(-55)
+
+        db.add_all([
+            Certificacion(
+                empleado=e_laura, nombre="Trabajo seguro en alturas", entidad="SENA",
+                fecha_obtencion=dias_desde_hoy(-300), fecha_vencimiento=dias_desde_hoy(20),
+            ),
+            Certificacion(
+                empleado=e_juan, nombre="Manejo de sustancias químicas", entidad="ARL Sura",
+                fecha_obtencion=dias_desde_hoy(-400), fecha_vencimiento=dias_desde_hoy(400),
+            ),
+            Certificacion(
+                empleado=e_carlos, nombre="Primeros auxilios", entidad="Cruz Roja Colombiana",
+                fecha_obtencion=dias_desde_hoy(-200), fecha_vencimiento=dias_desde_hoy(5),
+            ),
+        ])
+
+        db.add_all([
+            Documento(empleado=e_maria, tipo=TipoDocumentoExpediente.hoja_de_vida, nombre_archivo="hoja_vida_maria.pdf"),
+            Documento(empleado=e_maria, tipo=TipoDocumentoExpediente.cedula, nombre_archivo="cedula_maria.pdf"),
+            Documento(empleado=e_maria, tipo=TipoDocumentoExpediente.certificado_eps, nombre_archivo="eps_maria.pdf"),
+            Documento(empleado=e_maria, tipo=TipoDocumentoExpediente.certificado_bancario, nombre_archivo="banco_maria.pdf"),
+            Documento(empleado=e_maria, tipo=TipoDocumentoExpediente.antecedentes_judiciales, nombre_archivo="antecedentes_maria.pdf"),
+            Documento(empleado=e_andres, tipo=TipoDocumentoExpediente.hoja_de_vida, nombre_archivo="hoja_vida_andres.pdf"),
+            Documento(empleado=e_andres, tipo=TipoDocumentoExpediente.cedula, nombre_archivo="cedula_andres.pdf"),
+            Documento(empleado=e_andres, tipo=TipoDocumentoExpediente.certificado_eps, nombre_archivo="eps_andres.pdf"),
+            Documento(empleado=e_pedro, tipo=TipoDocumentoExpediente.hoja_de_vida, nombre_archivo="hoja_vida_pedro.pdf"),
+            Documento(empleado=e_pedro, tipo=TipoDocumentoExpediente.cedula, nombre_archivo="cedula_pedro.pdf"),
+            Documento(empleado=e_pedro, tipo=TipoDocumentoExpediente.certificado_eps, nombre_archivo="eps_pedro.pdf"),
+            Documento(empleado=e_pedro, tipo=TipoDocumentoExpediente.certificado_bancario, nombre_archivo="banco_pedro.pdf"),
+            Documento(empleado=e_pedro, tipo=TipoDocumentoExpediente.antecedentes_judiciales, nombre_archivo="antecedentes_pedro.pdf"),
+            Documento(empleado=e_juan, tipo=TipoDocumentoExpediente.hoja_de_vida, nombre_archivo="hoja_vida_juan.pdf"),
+            Documento(empleado=e_juan, tipo=TipoDocumentoExpediente.cedula, nombre_archivo="cedula_juan.pdf"),
+        ])
+
+        db.add_all([
+            Evaluacion(
+                empleado=e_juan, periodo=f"{HOY.year}-S1",
+                fecha_programada=dias_desde_hoy(-10), fecha_realizada=dias_desde_hoy(-10),
+                resultado="Sobresaliente", comentario="Buen desempeño en campo durante el semestre.",
+            ),
+            Evaluacion(empleado=e_valentina, periodo=f"{HOY.year}-S1", fecha_programada=dias_desde_hoy(5)),
+            Evaluacion(empleado=e_esteban, periodo=f"{HOY.year}-S1", fecha_programada=dias_desde_hoy(-5)),
+        ])
+
+        db.add_all([
+            Capacitacion(
+                empleado=e_paula, nombre="Excel avanzado para nómina",
+                fecha_programada=dias_desde_hoy(-30), fecha_realizada=dias_desde_hoy(-28), horas=16,
+            ),
+            Capacitacion(
+                empleado=e_natalia, nombre="Inducción en seguridad y salud en el trabajo",
+                fecha_programada=dias_desde_hoy(10),
+            ),
+            Capacitacion(
+                empleado=e_jorge, nombre="Manejo de GPS y cartografía de campo",
+                fecha_programada=dias_desde_hoy(-3),
+            ),
+        ])
+
+        db.add_all([
+            ExamenMedico(
+                empleado=e_ricardo, tipo=TipoExamenMedico.ingreso,
+                fecha_realizado=date(HOY.year - 1, 3, 1), fecha_proximo=dias_desde_hoy(25),
+            ),
+            ExamenMedico(
+                empleado=e_sofia, tipo=TipoExamenMedico.periodico,
+                fecha_realizado=dias_desde_hoy(-350), fecha_proximo=dias_desde_hoy(4),
+            ),
+            ExamenMedico(
+                empleado=e_maria, tipo=TipoExamenMedico.periodico,
+                fecha_realizado=dias_desde_hoy(-100), fecha_proximo=dias_desde_hoy(200),
+            ),
+        ])
+
+        # Una incapacidad vigente hoy, para demostrar la alerta de
+        # "incapacidad activa" (la de Jorge, más arriba, ya terminó).
+        db.add(
+            Solicitud(
+                empleado=e_natalia, tipo=TipoSolicitud.incapacidad,
+                fecha_solicitud=dias_desde_hoy(-3), fecha_inicio=dias_desde_hoy(-2), fecha_fin=dias_desde_hoy(3),
+                motivo="Incapacidad médica por gripe.",
+                estado_jefe=EstadoAprobacion.aprobado, jefe_comentario="Confirmado con el parte médico.",
+                jefe_fecha_respuesta=dias_desde_hoy(-2),
+                estado_th=EstadoAprobacion.aprobado, th_comentario="Incapacidad radicada ante la EPS.",
+                th_fecha_respuesta=dias_desde_hoy(-1),
+            )
+        )
 
         for periodo in (mes_anterior, periodo_actual):
             for empleado, (salario, movilidad) in salarios.items():

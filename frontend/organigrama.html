@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organigrama · Ecodes Talento Humano</title>
+  <link rel="icon" href="assets/logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <div id="sidebar-slot"></div>
+    <div id="topbar-slot"></div>
+
+    <main class="main page-enter">
+      <div class="subtabs">
+        <button class="subtab-btn active" data-tab="areas">Áreas</button>
+        <button class="subtab-btn" data-tab="cargos">Cargos</button>
+        <button class="subtab-btn" data-tab="vacantes">Vacantes</button>
+        <button class="subtab-btn" data-tab="jefaturas">Jefaturas y equipos</button>
+        <button class="subtab-btn" data-tab="dependencias">Dependencias</button>
+      </div>
+
+      <div id="view-areas">
+        <div class="flex-between mb-18" style="flex-wrap:wrap; gap:12px;">
+          <select id="f-areas-empresa">
+            <option value="">Todas las empresas</option>
+          </select>
+          <button class="btn btn-primary write-only" id="btn-nueva-area">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nueva área
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Área</th>
+                <th>Empresa</th>
+                <th>Depende de</th>
+                <th>Responsable</th>
+                <th>Empleados</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="areas-tbody">
+              <tr><td colspan="6" class="table-empty">Cargando áreas…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="view-cargos" class="hidden">
+        <div class="flex-between mb-18" style="flex-wrap:wrap; gap:12px;">
+          <select id="f-cargos-empresa">
+            <option value="">Todas las empresas</option>
+          </select>
+          <button class="btn btn-primary write-only" id="btn-nuevo-cargo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo cargo
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Cargo</th>
+                <th>Empresa</th>
+                <th>Área</th>
+                <th>Depende de</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cargos-tbody">
+              <tr><td colspan="5" class="table-empty">Cargando cargos…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="view-vacantes" class="hidden">
+        <div class="flex-between mb-18" style="flex-wrap:wrap; gap:12px;">
+          <select id="f-vacantes-estado">
+            <option value="">Todos los estados</option>
+            <option value="Abierta">Abierta</option>
+            <option value="En proceso">En proceso</option>
+            <option value="Cerrada">Cerrada</option>
+          </select>
+          <button class="btn btn-primary write-only" id="btn-nueva-vacante">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nueva vacante
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Vacante</th>
+                <th>Empresa</th>
+                <th>Área / Cargo</th>
+                <th>Apertura</th>
+                <th>Días abierta</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="vacantes-tbody">
+              <tr><td colspan="7" class="table-empty">Cargando vacantes…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="view-jefaturas" class="hidden">
+        <p class="text-muted" style="font-size:13px;margin:0 0 16px;max-width:760px;">
+          Cada empleado con las personas que le reportan directamente ("su equipo"), de forma
+          recursiva. Se arma a partir del jefe inmediato que ya tiene registrado cada ficha.
+        </p>
+        <div id="jefaturas-tree" class="org-tree">
+          <p class="text-faint">Cargando…</p>
+        </div>
+      </div>
+
+      <div id="view-dependencias" class="hidden">
+        <p class="text-muted" style="font-size:13px;margin:0 0 16px;max-width:760px;">
+          Qué área depende de cuál otra, de la(s) raíz(ces) hacia las subáreas.
+        </p>
+        <div id="dependencias-tree" class="org-tree">
+          <p class="text-faint">Cargando…</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/organigrama.js"></script>
+</body>
+</html>

@@ -9,15 +9,37 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.certificados import generar_certificado_laboral
 from app.deps import get_current_user, require_write
-from app.models import Contrato, Empleado, EstadoEmpleado, Estudio, Experiencia, TipoCargo
+from app.models import (
+    Capacitacion,
+    Certificacion,
+    Contrato,
+    Documento,
+    Empleado,
+    EstadoEmpleado,
+    Estudio,
+    Evaluacion,
+    ExamenMedico,
+    Experiencia,
+    TipoCargo,
+)
 from app.schemas import (
+    CapacitacionCreate,
+    CapacitacionOut,
+    CertificacionCreate,
+    CertificacionOut,
     CumpleañosOut,
+    DocumentoCreate,
+    DocumentoOut,
     EmpleadoCreate,
     EmpleadoListOut,
     EmpleadoOut,
     EmpleadoUpdate,
     EstudioCreate,
     EstudioOut,
+    EvaluacionCreate,
+    EvaluacionOut,
+    ExamenMedicoCreate,
+    ExamenMedicoOut,
     ExperienciaCreate,
     ExperienciaOut,
 )
@@ -37,6 +59,11 @@ def _empleado_con_relaciones(db: Session, empleado_id: int) -> Empleado:
             joinedload(Empleado.jefe_inmediato),
             joinedload(Empleado.contratos).joinedload(Contrato.modificaciones),
             joinedload(Empleado.contratos).joinedload(Contrato.proyecto),
+            joinedload(Empleado.certificaciones),
+            joinedload(Empleado.documentos),
+            joinedload(Empleado.evaluaciones),
+            joinedload(Empleado.capacitaciones),
+            joinedload(Empleado.examenes_medicos),
         )
         .filter(Empleado.id == empleado_id)
         .first()
@@ -268,6 +295,197 @@ def eliminar_experiencia(
     if experiencia is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Experiencia no encontrada")
     db.delete(experiencia)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Certificaciones
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{empleado_id}/certificaciones", response_model=CertificacionOut, status_code=status.HTTP_201_CREATED
+)
+def agregar_certificacion(
+    empleado_id: int,
+    payload: CertificacionCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write),
+):
+    _empleado_con_relaciones(db, empleado_id)
+    certificacion = Certificacion(empleado_id=empleado_id, **payload.model_dump())
+    db.add(certificacion)
+    db.commit()
+    db.refresh(certificacion)
+    return certificacion
+
+
+@router.delete("/{empleado_id}/certificaciones/{certificacion_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_certificacion(
+    empleado_id: int,
+    certificacion_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write),
+):
+    certificacion = (
+        db.query(Certificacion)
+        .filter(Certificacion.id == certificacion_id, Certificacion.empleado_id == empleado_id)
+        .first()
+    )
+    if certificacion is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Certificación no encontrada")
+    db.delete(certificacion)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Documentos del expediente
+# ---------------------------------------------------------------------------
+
+@router.post("/{empleado_id}/documentos", response_model=DocumentoOut, status_code=status.HTTP_201_CREATED)
+def agregar_documento(
+    empleado_id: int,
+    payload: DocumentoCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write),
+):
+    _empleado_con_relaciones(db, empleado_id)
+    documento = Documento(empleado_id=empleado_id, **payload.model_dump())
+    db.add(documento)
+    db.commit()
+    db.refresh(documento)
+    return documento
+
+
+@router.delete("/{empleado_id}/documentos/{documento_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_documento(
+    empleado_id: int,
+    documento_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write),
+):
+    documento = (
+        db.query(Documento)
+        .filter(Documento.id == documento_id, Documento.empleado_id == empleado_id)
+        .first()
+    )
+    if documento is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado")
+    db.delete(documento)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Evaluaciones de desempeño
+# ---------------------------------------------------------------------------
+
+@router.post("/{empleado_id}/evaluaciones", response_model=EvaluacionOut, status_code=status.HTTP_201_CREATED)
+def agregar_evaluacion(
+    empleado_id: int,
+    payload: EvaluacionCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write),
+):
+    _empleado_con_relaciones(db, empleado_id)
+    evaluacion = Evaluacion(empleado_id=empleado_id, **payload.model_dump())
+    db.add(evaluacion)
+    db.commit()
+    db.refresh(evaluacion)
+    return evaluacion
+
+
+@router.delete("/{empleado_id}/evaluaciones/{evaluacion_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_evaluacion(
+    empleado_id: int,
+    evaluacion_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write),
+):
+    evaluacion = (
+        db.query(Evaluacion)
+        .filter(Evaluacion.id == evaluacion_id, Evaluacion.empleado_id == empleado_id)
+        .first()
+    )
+    if evaluacion is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evaluación no encontrada")
+    db.delete(evaluacion)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Capacitaciones
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{empleado_id}/capacitaciones", response_model=CapacitacionOut, status_code=status.HTTP_201_CREATED
+)
+def agregar_capacitacion(
+    empleado_id: int,
+    payload: CapacitacionCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write),
+):
+    _empleado_con_relaciones(db, empleado_id)
+    capacitacion = Capacitacion(empleado_id=empleado_id, **payload.model_dump())
+    db.add(capacitacion)
+    db.commit()
+    db.refresh(capacitacion)
+    return capacitacion
+
+
+@router.delete("/{empleado_id}/capacitaciones/{capacitacion_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_capacitacion(
+    empleado_id: int,
+    capacitacion_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write),
+):
+    capacitacion = (
+        db.query(Capacitacion)
+        .filter(Capacitacion.id == capacitacion_id, Capacitacion.empleado_id == empleado_id)
+        .first()
+    )
+    if capacitacion is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Capacitación no encontrada")
+    db.delete(capacitacion)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Exámenes médicos
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/{empleado_id}/examenes-medicos", response_model=ExamenMedicoOut, status_code=status.HTTP_201_CREATED
+)
+def agregar_examen_medico(
+    empleado_id: int,
+    payload: ExamenMedicoCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write),
+):
+    _empleado_con_relaciones(db, empleado_id)
+    examen = ExamenMedico(empleado_id=empleado_id, **payload.model_dump())
+    db.add(examen)
+    db.commit()
+    db.refresh(examen)
+    return examen
+
+
+@router.delete("/{empleado_id}/examenes-medicos/{examen_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_examen_medico(
+    empleado_id: int,
+    examen_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write),
+):
+    examen = (
+        db.query(ExamenMedico)
+        .filter(ExamenMedico.id == examen_id, ExamenMedico.empleado_id == empleado_id)
+        .first()
+    )
+    if examen is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Examen médico no encontrado")
+    db.delete(examen)
     db.commit()
 
 

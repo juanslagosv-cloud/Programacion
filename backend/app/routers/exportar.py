@@ -8,10 +8,17 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import (
+    Area,
+    Capacitacion,
+    Cargo,
+    Certificacion,
     Contrato,
+    Documento,
     Empleado,
     Empresa,
     Estudio,
+    Evaluacion,
+    ExamenMedico,
     Experiencia,
     ModificacionContrato,
     Nomina,
@@ -19,8 +26,9 @@ from app.models import (
     Participacion,
     Proyecto,
     Solicitud,
+    Vacante,
 )
-from app.utils import dias_solicitados, duracion_contrato, estado_general_solicitud
+from app.utils import contar_empleados_area, dias_solicitados, duracion_contrato, estado_general_solicitud
 
 router = APIRouter(prefix="/exportar", tags=["Exportar"])
 
@@ -250,6 +258,142 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
         ]
     )
 
+    areas = db.query(Area).all()
+    df_areas = pd.DataFrame(
+        [
+            {
+                "id": a.id,
+                "empresa_id": a.empresa_id,
+                "nombre": a.nombre,
+                "area_padre_id": a.area_padre_id,
+                "area_padre_nombre": a.area_padre.nombre if a.area_padre else None,
+                "responsable_id": a.responsable_id,
+                "responsable_nombre": a.responsable.nombre_completo if a.responsable else None,
+                "total_empleados": contar_empleados_area(a),
+            }
+            for a in areas
+        ]
+    )
+
+    cargos = db.query(Cargo).all()
+    df_cargos = pd.DataFrame(
+        [
+            {
+                "id": c.id,
+                "empresa_id": c.empresa_id,
+                "area_id": c.area_id,
+                "area_nombre": c.area.nombre if c.area else None,
+                "nombre": c.nombre,
+                "cargo_superior_id": c.cargo_superior_id,
+                "cargo_superior_nombre": c.cargo_superior.nombre if c.cargo_superior else None,
+            }
+            for c in cargos
+        ]
+    )
+
+    vacantes = db.query(Vacante).all()
+    df_vacantes = pd.DataFrame(
+        [
+            {
+                "id": v.id,
+                "empresa_id": v.empresa_id,
+                "area_id": v.area_id,
+                "area_nombre": v.area.nombre if v.area else None,
+                "cargo_id": v.cargo_id,
+                "cargo_nombre": v.cargo.nombre if v.cargo else None,
+                "titulo": v.titulo,
+                "motivo": v.motivo,
+                "salario_ofrecido": float(v.salario_ofrecido) if v.salario_ofrecido is not None else None,
+                "fecha_apertura": v.fecha_apertura,
+                "fecha_cierre_esperada": v.fecha_cierre_esperada,
+                "fecha_cierre_real": v.fecha_cierre_real,
+                "estado": v.estado.value,
+                "notas": v.notas,
+            }
+            for v in vacantes
+        ]
+    )
+
+    certificaciones = db.query(Certificacion).all()
+    df_certificaciones = pd.DataFrame(
+        [
+            {
+                "id": c.id,
+                "empleado_id": c.empleado_id,
+                "empleado_nombre": c.empleado.nombre_completo,
+                "nombre": c.nombre,
+                "entidad": c.entidad,
+                "fecha_obtencion": c.fecha_obtencion,
+                "fecha_vencimiento": c.fecha_vencimiento,
+            }
+            for c in certificaciones
+        ]
+    )
+
+    documentos = db.query(Documento).all()
+    df_documentos = pd.DataFrame(
+        [
+            {
+                "id": d.id,
+                "empleado_id": d.empleado_id,
+                "empleado_nombre": d.empleado.nombre_completo,
+                "tipo": d.tipo.value,
+                "nombre_archivo": d.nombre_archivo,
+                "fecha_cargue": d.fecha_cargue,
+            }
+            for d in documentos
+        ]
+    )
+
+    evaluaciones = db.query(Evaluacion).all()
+    df_evaluaciones = pd.DataFrame(
+        [
+            {
+                "id": ev.id,
+                "empleado_id": ev.empleado_id,
+                "empleado_nombre": ev.empleado.nombre_completo,
+                "periodo": ev.periodo,
+                "fecha_programada": ev.fecha_programada,
+                "fecha_realizada": ev.fecha_realizada,
+                "resultado": ev.resultado,
+                "comentario": ev.comentario,
+            }
+            for ev in evaluaciones
+        ]
+    )
+
+    capacitaciones = db.query(Capacitacion).all()
+    df_capacitaciones = pd.DataFrame(
+        [
+            {
+                "id": cap.id,
+                "empleado_id": cap.empleado_id,
+                "empleado_nombre": cap.empleado.nombre_completo,
+                "nombre": cap.nombre,
+                "fecha_programada": cap.fecha_programada,
+                "fecha_realizada": cap.fecha_realizada,
+                "horas": cap.horas,
+            }
+            for cap in capacitaciones
+        ]
+    )
+
+    examenes_medicos = db.query(ExamenMedico).all()
+    df_examenes_medicos = pd.DataFrame(
+        [
+            {
+                "id": ex.id,
+                "empleado_id": ex.empleado_id,
+                "empleado_nombre": ex.empleado.nombre_completo,
+                "tipo": ex.tipo.value,
+                "fecha_realizado": ex.fecha_realizado,
+                "fecha_proximo": ex.fecha_proximo,
+                "concepto": ex.concepto,
+            }
+            for ex in examenes_medicos
+        ]
+    )
+
     empresas = db.query(Empresa).all()
     df_empresas = pd.DataFrame(
         [
@@ -279,6 +423,14 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
         df_nomina.to_excel(writer, sheet_name="nomina", index=False)
         df_novedades.to_excel(writer, sheet_name="novedades", index=False)
         df_solicitudes.to_excel(writer, sheet_name="solicitudes", index=False)
+        df_areas.to_excel(writer, sheet_name="areas", index=False)
+        df_cargos.to_excel(writer, sheet_name="cargos", index=False)
+        df_vacantes.to_excel(writer, sheet_name="vacantes", index=False)
+        df_certificaciones.to_excel(writer, sheet_name="certificaciones", index=False)
+        df_documentos.to_excel(writer, sheet_name="documentos", index=False)
+        df_evaluaciones.to_excel(writer, sheet_name="evaluaciones", index=False)
+        df_capacitaciones.to_excel(writer, sheet_name="capacitaciones", index=False)
+        df_examenes_medicos.to_excel(writer, sheet_name="examenes_medicos", index=False)
 
     buffer.seek(0)
     headers = {"Content-Disposition": "attachment; filename=ecodes_talento_humano.xlsx"}

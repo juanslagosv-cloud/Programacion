@@ -178,7 +178,60 @@ acción aparte de Talento Humano en las pantallas correspondientes. Esto es
 intencional: evita que una solicitud modifique datos de nómina o del
 contrato de forma silenciosa.
 
-## 5. Requisitos
+## 5. Organigrama y alertas del expediente
+
+### 5.1. Organigrama: áreas, cargos, jefaturas, dependencias, equipos y vacantes
+
+La pantalla **Organigrama** tiene cinco vistas:
+
+- **Áreas**: catálogo formal de las áreas de la empresa, con jerarquía entre
+  ellas (`área padre`, lo que arma las **Dependencias**) y un responsable
+  opcional (el jefe del área). Es un catálogo aparte del campo de texto libre
+  `área` que ya tiene cada empleado en su ficha (sección 3.1): no se migra a
+  nadie automáticamente, a propósito, para no obligar a reasignar empleados
+  ya existentes. El número de empleados que muestra cada área se calcula por
+  coincidencia de nombre contra ese campo de texto, no por una relación
+  guardada.
+- **Cargos**: catálogo formal de cargos, también con jerarquía
+  (`cargo superior`) e independiente del texto libre `nombre_cargo` de cada
+  empleado, por la misma razón que las áreas. Sirve sobre todo para definir
+  **Vacantes**.
+- **Vacantes**: posiciones abiertas, con área, cargo, motivo, salario
+  ofrecido, fechas de apertura/cierre y estado (Abierta, En proceso,
+  Cerrada). Llenar una vacante no crea el empleado automáticamente: Talento
+  Humano lo registra como siempre en la pantalla de Empleados y simplemente
+  cierra la vacante aquí.
+- **Jefaturas y equipos**: árbol de solo lectura armado a partir del jefe
+  inmediato que ya tiene cada empleado (el mismo campo de la sección 3.1) —
+  cada persona con quienes le reportan directamente, de forma recursiva. No
+  es una pantalla aparte de datos: es la misma información de siempre, vista
+  como árbol.
+- **Dependencias**: igual que Jefaturas pero para la jerarquía de Áreas, de
+  la(s) raíz(ces) hacia las subáreas.
+
+### 5.2. Alertas del expediente del empleado
+
+Son ocho alertas nuevas, agrupadas bajo "Expediente del empleado" en la
+pantalla de Alertas, que se suman a las que ya existían (vacaciones por
+vencer, sobre-asignación, nómina y novedades sin procesar):
+
+| Alerta | De dónde sale |
+|--------|----------------|
+| Contrato próximo a vencer | `fecha_fin` del contrato activo, dentro de 30 días |
+| Período de prueba por finalizar | `fecha_inicio + periodo_prueba_dias` del contrato, dentro de 10 días |
+| Certificación próxima a vencer | `fecha_vencimiento` de una certificación del empleado, dentro de 30 días |
+| Documento faltante | Compara los documentos cargados contra los tipos obligatorios (hoja de vida, cédula, certificado EPS, certificado bancario, antecedentes judiciales) |
+| Evaluación pendiente | Evaluación de desempeño sin `fecha_realizada` |
+| Capacitación pendiente | Capacitación sin `fecha_realizada` |
+| Examen médico próximo | `fecha_proximo` de un examen médico, dentro de 30 días |
+| Incapacidad activa | Una solicitud de tipo Incapacidad ya aprobada por Talento Humano, vigente hoy (ver sección 4) |
+
+Certificaciones, documentos, evaluaciones, capacitaciones y exámenes médicos
+se registran desde la propia ficha del empleado (igual que Formación
+académica o Experiencia laboral): son sub-listas de la ficha, no pantallas
+aparte, y cada una se agrega o se elimina ahí mismo.
+
+## 6. Requisitos
 
 - Python 3.11+
 - Docker y Docker Compose (para PostgreSQL local) — o una instancia de PostgreSQL existente
@@ -186,9 +239,9 @@ contrato de forma silenciosa.
 
 ---
 
-## 6. Puesta en marcha — Backend
+## 7. Puesta en marcha — Backend
 
-### 6.1. Levantar PostgreSQL
+### 7.1. Levantar PostgreSQL
 
 ```bash
 docker compose up -d
@@ -197,7 +250,7 @@ docker compose up -d
 Esto crea una base de datos `ecodes_th` en `localhost:5432` con usuario/clave
 `ecodes` / `ecodes` (ver `docker-compose.yml`).
 
-### 6.2. Configurar variables de entorno
+### 7.2. Configurar variables de entorno
 
 ```bash
 cp .env.example backend/.env
@@ -214,7 +267,7 @@ usar una clave JWT propia. Variables disponibles:
 | `ACCESS_TOKEN_EXPIRE_MINUTES`   | Minutos de validez del token (por defecto 480 = 8h)        |
 | `CORS_ORIGINS`                  | Orígenes permitidos, separados por coma                    |
 
-### 6.3. Instalar dependencias y crear el entorno virtual
+### 7.3. Instalar dependencias y crear el entorno virtual
 
 ```bash
 cd backend
@@ -223,7 +276,7 @@ source .venv/bin/activate        # En Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 6.4. Poblar la base de datos con datos de ejemplo
+### 7.4. Poblar la base de datos con datos de ejemplo
 
 Las tablas se crean automáticamente al iniciar la app, pero para tener datos de
 demo (empleados, proyectos, participaciones, novedades y nómina de ejemplo):
@@ -240,7 +293,7 @@ Esto crea dos usuarios de prueba:
 > El script de seed **borra y vuelve a crear todas las tablas** (`drop_all` +
 > `create_all`) — solo debe usarse en ambientes de desarrollo/demo.
 
-### 6.5. Iniciar la API
+### 7.5. Iniciar la API
 
 ```bash
 uvicorn app.main:app --reload --port 8000
@@ -251,7 +304,7 @@ interactiva (Swagger) en `http://localhost:8000/docs`.
 
 ---
 
-## 7. Puesta en marcha — Frontend
+## 8. Puesta en marcha — Frontend
 
 El frontend es HTML/CSS/JS puro, sin dependencias ni build step. Solo necesita
 servirse como archivos estáticos (no se puede abrir con `file://` porque el
@@ -276,7 +329,7 @@ para que el navegador pueda llamar a la API.
 
 ---
 
-## 8. Flujo de uso
+## 9. Flujo de uso
 
 1. Inicia sesión en `index.html` seleccionando el rol (Talento Humano o
    Administrativo) e ingresando usuario/contraseña.
@@ -300,27 +353,35 @@ para que el navegador pueda llamar a la API.
    trabajo remoto, horas extras, ausencias, suspensiones y cambios
    salariales/de cargo/de proyecto, con el flujo de aprobación
    Empleado → Jefe inmediato → Talento Humano (ver sección 4).
-7. **Nómina** muestra el resumen del mes (total, próximo pago, novedades sin
+7. **Organigrama** administra áreas, cargos y vacantes, y muestra las
+   jefaturas/equipos y las dependencias entre áreas como árboles de solo
+   lectura (ver sección 5.1).
+8. **Nómina** muestra el resumen del mes (total, próximo pago, novedades sin
    procesar) y el detalle por empleado con los auxilios calculados
    automáticamente (ver "Reglas de auxilios" más abajo).
-8. **Alertas** agrupa vacaciones por vencer, sobre-asignación de personal,
-   nómina/pagos próximos y novedades sin procesar.
-9. El botón **"Exportar a Excel"** (visible en todas las pantallas) descarga un
-   libro con una hoja por tabla (`empleados`, `estudios`, `experiencia`,
-   `proyectos`, `participaciones`, `nomina`, `novedades`, `solicitudes`), con
-   columnas en `snake_case` y los mismos `id` como llaves, listo para
-   conectar en Power BI y construir las relaciones e indicadores de
-   rotación, costos laborales prorrateados y ausentismo.
+9. **Alertas** agrupa vacaciones por vencer, sobre-asignación de personal,
+   nómina/pagos próximos, novedades sin procesar y las ocho alertas del
+   expediente del empleado (contrato por vencer, período de prueba,
+   certificaciones, documentos, evaluaciones, capacitaciones, exámenes
+   médicos e incapacidad activa — ver sección 5.2).
+10. El botón **"Exportar a Excel"** (visible en todas las pantallas) descarga
+    un libro con una hoja por tabla (`empleados`, `estudios`, `experiencia`,
+    `proyectos`, `participaciones`, `nomina`, `novedades`, `solicitudes`,
+    `areas`, `cargos`, `vacantes`, `certificaciones`, `documentos`,
+    `evaluaciones`, `capacitaciones`, `examenes_medicos`), con columnas en
+    `snake_case` y los mismos `id` como llaves, listo para conectar en
+    Power BI y construir las relaciones e indicadores de rotación, costos
+    laborales prorrateados y ausentismo.
 
 ---
 
-## 9. Reglas de liquidación de nómina
+## 10. Reglas de liquidación de nómina
 
 Todas las tasas y valores viven en un solo lugar (`backend/app/utils.py`,
 función `liquidar_nomina`) y los usan tanto el endpoint de nómina como el
 script de seed, así que nunca se desincronizan.
 
-### 9.1. Devengado
+### 10.1. Devengado
 
 | Concepto | Valor 2026 | Regla |
 |----------|-----------:|-------|
@@ -329,7 +390,7 @@ script de seed, así que nunca se desincronizan.
 | **Auxilio de transporte** | **$249.095** | Obligatorio por ley **solo** para quien devengue hasta 2 SMLMV. No depende del tipo de cargo. Si se deja en `0` al registrar la nómina, el sistema lo aplica automáticamente. |
 | **Auxilio de movilidad** | lo define Ecodes | Auxilio interno para roles de campo. **No es salarial ni prestacional**: no entra en ninguna base, solo suma al costo. Al ser una decisión de la empresa, **se registra persona a persona** y el sistema nunca lo calcula ni lo asume. |
 
-### 9.2. Deducciones al trabajador
+### 10.2. Deducciones al trabajador
 
 | Concepto | Tasa | Base |
 |----------|-----:|------|
@@ -339,7 +400,7 @@ script de seed, así que nunca se desincronizan.
 El campo `descuentos` queda libre para descuentos adicionales (préstamos,
 embargos, etc.); salud y pensión se calculan aparte.
 
-### 9.3. Costo adicional que asume el empleador
+### 10.3. Costo adicional que asume el empleador
 
 | Concepto | Tasa mensual | Base | Equivalente anual |
 |----------|-------------:|------|-------------------|
@@ -378,7 +439,7 @@ riesgo I), para no dejar de calcular algo razonable.
 > (`TASA_SALUD_EMPLEADOR`, etc. en `backend/app/utils.py`) y el cálculo las
 > incluye automáticamente.
 
-### 9.3.1. Afiliaciones y datos bancarios
+### 10.3.1. Afiliaciones y datos bancarios
 
 Además de lo que entra en el cálculo de nómina, la ficha del empleado guarda
 los datos que Contabilidad necesita para pagarle y afiliarlo: EPS, AFP,
@@ -387,7 +448,7 @@ cuenta. Son campos de texto libre (no hay una lista cerrada de entidades,
 porque cambian y varían según el país), opcionales para no bloquear el
 registro de alguien mientras se termina de recolectar su información.
 
-### 9.4. Periodicidad de pago: mensual y quincenal
+### 10.4. Periodicidad de pago: mensual y quincenal
 
 No todo el mundo cobra el mismo día. Cada empleado tiene un campo
 `periodicidad_pago`:
@@ -419,7 +480,7 @@ para poder analizar el flujo de caja por fecha de desembolso en Power BI.
 > se suman sus registros, de modo que un empleado quincenal aporta sus dos
 > quincenas y no se subestima su costo.
 
-### 9.5. Por qué importa para los indicadores
+### 10.5. Por qué importa para los indicadores
 
 El **costo por proyecto se prorratea sobre el costo real del empleador**, no
 sobre el salario: una persona cuesta entre 1,34× y 1,62× su salario según su
@@ -437,7 +498,7 @@ La hoja `nomina` del Excel exporta el desglose completo (`salud_empleado`,
 
 ---
 
-## 10. Certificado laboral en PDF
+## 11. Certificado laboral en PDF
 
 Desde la ficha de cada empleado (panel lateral, sección **Documentos**) se
 genera un certificado laboral en PDF con el logo y los datos de SU empresa
@@ -457,7 +518,7 @@ fecha de ingreso. Si la persona ya no está activa, el texto pasa a tiempo
 pasado y agrega la fecha de retiro, que se toma de la novedad de tipo
 **Salida**. Lo pueden emitir los dos roles: es una consulta, no modifica nada.
 
-### 10.1. Datos de la empresa y de quien firma
+### 11.1. Datos de la empresa y de quien firma
 
 El sistema **no se inventa** el NIT ni el nombre de quien firma: esos datos
 salen de la empresa asignada al empleado, administrada desde Empleados >
@@ -468,7 +529,7 @@ se le asigne una.
 Las variables `EMPRESA_*` y `FIRMANTE_*` del `.env` solo importan para la
 primera empresa que se crea al sembrar la base vacía (ver `.env.example`).
 
-### 10.2. Si pides el certificado con salario y no hay nómina
+### 11.2. Si pides el certificado con salario y no hay nómina
 
 El sistema responde con un mensaje explicando que esa persona no tiene nómina
 registrada, en vez de emitir un certificado que no dice nada del salario.
@@ -476,7 +537,7 @@ Registra la nómina del período o genera el certificado sin salario.
 
 ---
 
-## 11. Endpoints principales
+## 12. Endpoints principales
 
 | Método | Ruta                                          | Descripción                                   |
 |--------|------------------------------------------------|------------------------------------------------|
@@ -496,8 +557,18 @@ Registra la nómina del período o genera el certificado sin salario.
 | GET/POST/DELETE | `/solicitudes[/{id}]`             | Solicitudes de los 13 tipos (`?empleado_id=&tipo=&estado_jefe=&estado_th=` para filtrar) |
 | POST   | `/solicitudes/{id}/decision-jefe`              | Registra la decisión del jefe inmediato (`409` si ya decidió) |
 | POST   | `/solicitudes/{id}/decision-th`                | Registra la decisión de Talento Humano (`409` si el jefe no la aprobó aún, o si ya decidió) |
+| GET/POST/PUT/DELETE | `/areas[/{id}]`                   | Catálogo de áreas (`?empresa_id=` para filtrar) |
+| GET/POST/PUT/DELETE | `/cargos[/{id}]`                  | Catálogo de cargos (`?empresa_id=&area_id=` para filtrar) |
+| GET/POST/PUT/DELETE | `/vacantes[/{id}]`                | Vacantes abiertas (`?empresa_id=&estado=` para filtrar) |
+| GET    | `/organigrama/jefaturas`                       | Árbol de jefaturas/equipos, derivado del jefe inmediato de cada empleado |
+| GET    | `/organigrama/dependencias`                    | Árbol de dependencias entre áreas              |
+| POST/DELETE | `/empleados/{id}/certificaciones[/{id}]`   | Certificaciones del empleado                   |
+| POST/DELETE | `/empleados/{id}/documentos[/{id}]`        | Documentos del expediente                      |
+| POST/DELETE | `/empleados/{id}/evaluaciones[/{id}]`      | Evaluaciones de desempeño                      |
+| POST/DELETE | `/empleados/{id}/capacitaciones[/{id}]`    | Capacitaciones                                 |
+| POST/DELETE | `/empleados/{id}/examenes-medicos[/{id}]`  | Exámenes médicos ocupacionales                 |
 | GET/POST/DELETE | `/nomina[/{id}]` · `/nomina/resumen`  | Registros de nómina y resumen del mes          |
-| GET    | `/alertas` · `/alertas/vacaciones` · `/alertas/sobreasignacion` | Alertas calculadas |
+| GET    | `/alertas` · `/alertas/vacaciones` · `/alertas/sobreasignacion` · `/alertas/expediente` | Alertas calculadas |
 | GET    | `/exportar/excel`                              | Descarga el libro de Excel para Power BI       |
 
 Todas las rutas (excepto `/auth/login`) requieren el header
@@ -506,7 +577,7 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 12. Notas de diseño
+## 13. Notas de diseño
 
 - Paleta derivada del logo de Ecodes: verde hoja y azul acento sobre fondo
   blanco dominante, con soporte completo de modo oscuro (variables CSS para
@@ -524,13 +595,13 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 13. Instalación en el servidor de Ecodes (recomendada)
+## 14. Instalación en el servidor de Ecodes (recomendada)
 
 Esta es la forma en que el sistema queda funcionando **dentro de la empresa**:
 en el servidor local, sin nube, y accesible desde los computadores de la
 oficina por el navegador. Los datos de los empleados nunca salen de Ecodes.
 
-### 13.1. Cómo queda montado
+### 14.1. Cómo queda montado
 
 ```
     Servidor de la oficina                    Computadores del equipo
@@ -545,7 +616,7 @@ Un solo programa sirve la API **y** las pantallas, así que no hay nada que
 instalar en los computadores del equipo: entran a
 `http://IP-DEL-SERVIDOR:8000` desde Chrome o Edge y listo.
 
-### 13.2. Instalación
+### 14.2. Instalación
 
 En el servidor hace falta **Docker Desktop** (Windows) o **Docker Engine**
 (Linux). Es lo único que se instala a mano.
@@ -576,7 +647,7 @@ más: `restart: unless-stopped` en `docker-compose.yml` se encarga.
 | Ver qué está pasando | `docker compose logs -f app` |
 | Actualizar a una versión nueva | `docker compose up -d --build` |
 
-### 13.3. Respaldos
+### 14.3. Respaldos
 
 Los datos viven dentro de Docker, no en una carpeta suelta, así que
 copiar archivos no alcanza: hay que generar el respaldo.
@@ -598,7 +669,7 @@ Ojo, reemplaza **todo** lo que haya en la base.
 > restauró no es un respaldo. Haz uno, restáuralo y verifica que los datos
 > estén completos.
 
-### 13.4. Seguridad en la red de la empresa
+### 14.4. Seguridad en la red de la empresa
 
 - **El sistema no va expuesto a internet.** Solo debe verse dentro de la red
   de la oficina. Si alguien necesita entrar desde afuera, que sea por la VPN
@@ -615,7 +686,7 @@ Ojo, reemplaza **todo** lo que haya en la base.
 
 ---
 
-## 14. Publicar el sistema en internet (Render + Vercel)
+## 15. Publicar el sistema en internet (Render + Vercel)
 
 > Esto es para **mostrar el sistema por fuera de la empresa** — la
 > sustentación de la tesis, por ejemplo. Para el uso real de Ecodes sirve la
@@ -634,7 +705,7 @@ archivos estáticos.
 > ambas cosas en su plan gratuito. Si lo intentas desplegar en Vercel tal cual,
 > falla con `FUNCTION_INVOCATION_FAILED` porque no encuentra la base de datos.
 
-### 14.1. Backend en Render
+### 15.1. Backend en Render
 
 El archivo `render.yaml` en la raíz ya describe el servicio y la base de datos,
 así que no hay que configurar nada a mano.
@@ -677,7 +748,7 @@ así que no hay que configurar nada a mano.
 
 La documentación interactiva de la API queda en `https://TU-SERVICIO.onrender.com/docs`.
 
-### 14.2. Frontend en Vercel
+### 15.2. Frontend en Vercel
 
 1. Abre `frontend/js/config.js` y pega la URL que te dio Render:
 
@@ -712,7 +783,7 @@ El `CORS` ya está resuelto: `render.yaml` define
 definitivo como las URLs de vista previa que Vercel genera en cada despliegue.
 Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 
-### 14.3. Cosas que conviene saber del plan gratuito
+### 15.3. Cosas que conviene saber del plan gratuito
 
 | | |
 |---|---|
@@ -720,7 +791,7 @@ Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 | **La base de datos caduca** | Las bases PostgreSQL gratuitas de Render expiran a los 30 días. Para un proyecto de tesis alcanza, pero anótalo. |
 | **Las contraseñas del seed son públicas** | `th / th12345` y `admin / admin12345` están en el repositorio. Sirven para la demo; si el sistema llegara a manejar datos reales de empleados, cámbialas antes. |
 
-### 14.4. Otras opciones
+### 15.4. Otras opciones
 
 - **Backend**: cualquier host compatible con ASGI (Uvicorn/Gunicorn) —
   Railway, Fly.io, un VPS con Docker, etc. Solo hay que configurar
