@@ -23,6 +23,7 @@ from app.models import (
     ModificacionContrato,
     Nomina,
     Novedad,
+    ParametroLegal,
     Participacion,
     Proyecto,
     Solicitud,
@@ -394,6 +395,30 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
         ]
     )
 
+    parametros_legales = db.query(ParametroLegal).all()
+    df_parametros_legales = pd.DataFrame(
+        [
+            {
+                "id": p.id,
+                "codigo": p.codigo,
+                "nombre": p.nombre,
+                "descripcion": p.descripcion,
+                "valor": float(p.valor),
+                "unidad": p.unidad.value,
+                "fecha_inicio_vigencia": p.fecha_inicio_vigencia,
+                "fecha_fin_vigencia": p.fecha_fin_vigencia,
+                "anio": p.anio,
+                "norma": p.norma,
+                "observaciones": p.observaciones,
+                "activo": p.activo,
+                "pendiente_verificacion": p.pendiente_verificacion,
+                "usuario_cambio": p.usuario_cambio.nombre if p.usuario_cambio else None,
+                "fecha_cambio": p.fecha_cambio,
+            }
+            for p in parametros_legales
+        ]
+    )
+
     empresas = db.query(Empresa).all()
     df_empresas = pd.DataFrame(
         [
@@ -431,6 +456,7 @@ def exportar_excel(db: Session = Depends(get_db), current_user=Depends(get_curre
         df_evaluaciones.to_excel(writer, sheet_name="evaluaciones", index=False)
         df_capacitaciones.to_excel(writer, sheet_name="capacitaciones", index=False)
         df_examenes_medicos.to_excel(writer, sheet_name="examenes_medicos", index=False)
+        df_parametros_legales.to_excel(writer, sheet_name="parametros_legales", index=False)
 
     buffer.seek(0)
     headers = {"Content-Disposition": "attachment; filename=ecodes_talento_humano.xlsx"}

@@ -36,6 +36,7 @@ from app.models import (
     NivelEducativo,
     NivelRiesgoArl,
     Novedad,
+    ParametroLegal,
     Participacion,
     PeriodicidadPago,
     Proyecto,
@@ -50,6 +51,7 @@ from app.models import (
     TipoModificacionContrato,
     TipoNovedad,
     TipoSolicitud,
+    UnidadParametro,
     Usuario,
     Vacante,
 )
@@ -83,20 +85,224 @@ def run():
         # -------------------------------------------------------------
         # Usuarios
         # -------------------------------------------------------------
+        usuario_th = Usuario(
+            username="th",
+            nombre="Camila Rojas · Talento Humano",
+            password_hash=hash_password("th12345"),
+            rol=RolUsuario.talento_humano,
+        )
+        usuario_admin = Usuario(
+            username="admin",
+            nombre="Julián Vargas · Administrativo",
+            password_hash=hash_password("admin12345"),
+            rol=RolUsuario.administrativo,
+        )
+        db.add_all([usuario_th, usuario_admin])
+
+        # -------------------------------------------------------------
+        # Parámetros legales (motor de configuración laboral — Colombia)
+        #
+        # ADVERTENCIA: estos valores se cargan con pendiente_verificacion=True
+        # a propósito. Son la mejor estimación disponible al momento de
+        # construir este módulo, citando la norma que se cree aplicable, pero
+        # NINGUNO debe usarse en una nómina real sin que un profesional de
+        # nómina/legal colombiano los confirme (o corrija) desde la pantalla
+        # Configuración > Parámetros legales. En particular: el SMLMV y la
+        # UVT de 2026 dependen de decretos de diciembre de 2025 que no se
+        # pudieron verificar contra una fuente oficial en este momento, y
+        # varias fechas exactas de transición de la Ley 2466 de 2025
+        # (reforma laboral) están sujetas a confirmación.
+        # -------------------------------------------------------------
+        def pl(codigo, nombre, valor, unidad, inicio, fin, anio, norma, obs):
+            return ParametroLegal(
+                codigo=codigo, nombre=nombre, valor=valor, unidad=unidad,
+                fecha_inicio_vigencia=inicio, fecha_fin_vigencia=fin, anio=anio,
+                norma=norma, observaciones=obs, usuario_cambio=usuario_th,
+            )
+
+        U = UnidadParametro
         db.add_all(
             [
-                Usuario(
-                    username="th",
-                    nombre="Camila Rojas · Talento Humano",
-                    password_hash=hash_password("th12345"),
-                    rol=RolUsuario.talento_humano,
-                ),
-                Usuario(
-                    username="admin",
-                    nombre="Julián Vargas · Administrativo",
-                    password_hash=hash_password("admin12345"),
-                    rol=RolUsuario.administrativo,
-                ),
+                # --- Salario mínimo y auxilio de transporte ---
+                pl("salario_minimo", "Salario mínimo mensual legal vigente", 1_423_500, U.pesos,
+                   date(2025, 1, 1), date(2025, 12, 31), 2025,
+                   "Decreto anual de salario mínimo (Gobierno Nacional)",
+                   "Valor del SMLMV 2025, como referencia histórica."),
+                pl("salario_minimo", "Salario mínimo mensual legal vigente", 1_550_000, U.pesos,
+                   date(2026, 1, 1), None, 2026,
+                   "Decreto anual de salario mínimo (Gobierno Nacional)",
+                   "Estimado por incremento típico (~8-9%); CONFIRMAR contra el decreto real de diciembre de 2025."),
+                pl("auxilio_transporte", "Auxilio de transporte mensual", 200_000, U.pesos,
+                   date(2025, 1, 1), date(2025, 12, 31), 2025,
+                   "Decreto anual de auxilio de transporte",
+                   "Valor 2025, como referencia histórica."),
+                pl("auxilio_transporte", "Auxilio de transporte mensual", 211_000, U.pesos,
+                   date(2026, 1, 1), None, 2026,
+                   "Decreto anual de auxilio de transporte",
+                   "Estimado; CONFIRMAR contra el decreto real de diciembre de 2025."),
+
+                # --- Jornada laboral ---
+                pl("jornada_semanal_maxima", "Jornada laboral máxima semanal", 44, U.horas,
+                   date(2025, 7, 15), date(2026, 7, 14), 2025,
+                   "Ley 2101 de 2021 (reducción gradual de jornada)",
+                   "Penúltimo escalón de la reducción gradual antes de llegar a 42 horas."),
+                pl("jornada_semanal_maxima", "Jornada laboral máxima semanal", 42, U.horas,
+                   date(2026, 7, 15), None, 2026,
+                   "Ley 2101 de 2021 (reducción gradual de jornada)",
+                   "Último escalón de la reducción gradual (42 horas). Confirmar fecha exacta de corte."),
+                pl("horas_mensuales_calculo", "Horas mensuales para cálculo de valor-hora", 240, U.horas,
+                   date(2020, 1, 1), None, 2020,
+                   "Práctica estándar de nómina (240 = 30 días × 8 horas)",
+                   "MUY DISCUTIDO tras la Ley 2101/2021: algunos contadores ya usan un divisor proporcional "
+                   "a la nueva jornada (p. ej. 180 para 42h/semana). Se deja 240 por ser aún el más usado, "
+                   "pero debe confirmarse con el contador/asesor antes de liquidar horas extra reales."),
+
+                # --- Seguridad social: salud y pensión ---
+                pl("porcentaje_salud_empleado", "Aporte a salud — trabajador", 0.04, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993, art. 204", "Estable desde 1993."),
+                pl("porcentaje_salud_empleador", "Aporte a salud — empleador", 0.085, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993, art. 204",
+                   "Tasa plena; ver exoneracion_parafiscales_umbral_smlmv para cuándo no se paga."),
+                pl("porcentaje_pension_empleado", "Aporte a pensión — trabajador", 0.04, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993, art. 20", "Estable desde 1993."),
+                pl("porcentaje_pension_empleador", "Aporte a pensión — empleador", 0.12, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993, art. 20", "Estable desde 1993."),
+
+                # --- Fondo de solidaridad pensional (tabla escalonada por IBC en SMLMV) ---
+                pl("fondo_solidaridad_4_16_smlmv", "Fondo de solidaridad pensional (4 a 16 SMLMV)", 0.01, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993 art. 8, modificado por Ley 797 de 2003 art. 7",
+                   "Solo aplica si el IBC del trabajador está en este rango."),
+                pl("fondo_solidaridad_16_17_smlmv", "Fondo de solidaridad pensional (16 a 17 SMLMV)", 0.012, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993 art. 8, modificado por Ley 797 de 2003 art. 7", None),
+                pl("fondo_solidaridad_17_18_smlmv", "Fondo de solidaridad pensional (17 a 18 SMLMV)", 0.014, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993 art. 8, modificado por Ley 797 de 2003 art. 7", None),
+                pl("fondo_solidaridad_18_19_smlmv", "Fondo de solidaridad pensional (18 a 19 SMLMV)", 0.016, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993 art. 8, modificado por Ley 797 de 2003 art. 7", None),
+                pl("fondo_solidaridad_19_20_smlmv", "Fondo de solidaridad pensional (19 a 20 SMLMV)", 0.018, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993 art. 8, modificado por Ley 797 de 2003 art. 7", None),
+                pl("fondo_solidaridad_mas_20_smlmv", "Fondo de solidaridad pensional (más de 20 SMLMV)", 0.02, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993 art. 8, modificado por Ley 797 de 2003 art. 7", None),
+                pl("fondo_solidaridad_umbral_smlmv", "Umbral de IBC desde el que aplica el fondo de solidaridad", 4, U.numero,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993, art. 8", "Por debajo de 4 SMLMV de IBC no aplica."),
+
+                # --- Parafiscales y ARL ---
+                pl("caja_compensacion", "Aporte a caja de compensación familiar", 0.04, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 21 de 1982", "Estable."),
+                pl("sena", "Aporte al SENA", 0.02, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 21 de 1982",
+                   "Ver exoneracion_parafiscales_umbral_smlmv: muchos empleadores están exonerados."),
+                pl("icbf", "Aporte al ICBF", 0.03, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 27 de 1974 / Ley 89 de 1988",
+                   "Ver exoneracion_parafiscales_umbral_smlmv: muchos empleadores están exonerados."),
+                pl("exoneracion_parafiscales_umbral_smlmv", "Umbral de nómina para exoneración de parafiscales (en SMLMV por trabajador)", 10, U.numero,
+                   date(2020, 1, 1), None, 2020, "Ley 1819 de 2016, art. 65",
+                   "Regla condicional: empleadores cuyos trabajadores devengan, individualmente, menos de este "
+                   "número de SMLMV están exonerados de SENA, ICBF y salud-empleador para esos trabajadores. "
+                   "No es un simple sí/no: depende del salario de cada trabajador, evaluado persona por persona."),
+                pl("arl_riesgo_i", "Tarifa ARL — Clase de riesgo I", 0.00522, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Decreto 1607 de 2002", "Riesgo mínimo."),
+                pl("arl_riesgo_ii", "Tarifa ARL — Clase de riesgo II", 0.01044, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Decreto 1607 de 2002", "Riesgo bajo."),
+                pl("arl_riesgo_iii", "Tarifa ARL — Clase de riesgo III", 0.02436, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Decreto 1607 de 2002", "Riesgo medio."),
+                pl("arl_riesgo_iv", "Tarifa ARL — Clase de riesgo IV", 0.0435, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Decreto 1607 de 2002", "Riesgo alto."),
+                pl("arl_riesgo_v", "Tarifa ARL — Clase de riesgo V", 0.0696, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Decreto 1607 de 2002", "Riesgo máximo."),
+
+                # --- Jornada nocturna y recargos ---
+                pl("hora_inicio_jornada_nocturna", "Hora de inicio de la jornada nocturna", 21.0, U.hora_del_dia,
+                   date(2020, 1, 1), date(2025, 6, 30), 2020, "CST art. 160 (antes de la reforma laboral)",
+                   "9:00 p.m., valor histórico previo a la Ley 2466 de 2025."),
+                pl("hora_inicio_jornada_nocturna", "Hora de inicio de la jornada nocturna", 19.0, U.hora_del_dia,
+                   date(2025, 7, 1), None, 2025, "Ley 2466 de 2025, art. 25 (modifica CST art. 160)",
+                   "7:00 p.m. CONFIRMAR la fecha exacta de entrada en vigor de este cambio."),
+                pl("hora_fin_jornada_nocturna", "Hora de finalización de la jornada nocturna", 6.0, U.hora_del_dia,
+                   date(2020, 1, 1), None, 2020, "CST art. 160", "6:00 a.m., sin cambios por la reforma."),
+                pl("recargo_nocturno", "Recargo por trabajo nocturno", 0.35, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "CST art. 168", "Estable; lo que cambió fue el horario, no el %."),
+                pl("recargo_hora_extra_diurna", "Recargo por hora extra diurna", 0.25, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "CST art. 168", "Estable."),
+                pl("recargo_hora_extra_nocturna", "Recargo por hora extra nocturna", 0.75, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "CST art. 168", "Estable."),
+                pl("recargo_dominical_festivo", "Recargo por trabajo dominical o festivo", 0.75, U.porcentaje,
+                   date(2020, 1, 1), date(2025, 6, 30), 2020, "CST art. 179 (antes de la reforma laboral)",
+                   "75%, valor histórico previo a la Ley 2466 de 2025."),
+                pl("recargo_dominical_festivo", "Recargo por trabajo dominical o festivo", 0.80, U.porcentaje,
+                   date(2025, 7, 1), date(2026, 6, 30), 2025, "Ley 2466 de 2025 (Reforma Laboral), modifica CST art. 179",
+                   "Primer escalón del incremento gradual. CONFIRMAR porcentaje y fechas exactas."),
+                pl("recargo_dominical_festivo", "Recargo por trabajo dominical o festivo", 0.90, U.porcentaje,
+                   date(2026, 7, 1), date(2027, 6, 30), 2026, "Ley 2466 de 2025 (Reforma Laboral), modifica CST art. 179",
+                   "Segundo escalón del incremento gradual."),
+                pl("recargo_dominical_festivo", "Recargo por trabajo dominical o festivo", 1.00, U.porcentaje,
+                   date(2027, 7, 1), None, 2027, "Ley 2466 de 2025 (Reforma Laboral), modifica CST art. 179",
+                   "Escalón final: recargo pleno del 100%."),
+                pl("recargo_hora_extra_dominical_diurna", "Recargo por hora extra diurna en dominical/festivo", 1.00, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "CST art. 179",
+                   "Interactúa con recargo_dominical_festivo; revisar la combinación con un asesor."),
+                pl("recargo_hora_extra_dominical_nocturna", "Recargo por hora extra nocturna en dominical/festivo", 1.50, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "CST art. 179",
+                   "Interactúa con recargo_dominical_festivo; revisar la combinación con un asesor."),
+
+                # --- Prestaciones sociales ---
+                pl("porcentaje_cesantias", "Cesantías (un mes de salario por año laborado)", 1 / 12, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "CST art. 249", "Estable."),
+                pl("porcentaje_intereses_cesantias", "Intereses sobre cesantías (anual)", 0.12, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 52 de 1975", "Estable."),
+                pl("porcentaje_prima_servicios", "Prima de servicios (un mes de salario por año, en 2 cuotas)", 1 / 12, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 1788 de 2016", "Estable; se paga mitad en junio y mitad en diciembre."),
+                pl("dias_vacaciones_anuales", "Días de vacaciones remuneradas por año laborado", 15, U.dias,
+                   date(2020, 1, 1), None, 2020, "CST art. 186", "15 días hábiles, estable."),
+
+                # --- Licencias ---
+                pl("licencia_maternidad_semanas", "Licencia de maternidad", 18, U.semanas,
+                   date(2020, 1, 1), None, 2020, "Ley 1822 de 2017", "Estable."),
+                pl("licencia_paternidad_dias", "Licencia de paternidad", 14, U.dias,
+                   date(2020, 1, 1), None, 2020, "Ley 2114 de 2021",
+                   "2 semanas. La Ley 2114/2021 programó incrementos graduales condicionados a metas de "
+                   "empleo que deben verificarse año a año — no asumir un aumento automático sin confirmar "
+                   "si la condición se cumplió."),
+                pl("licencia_luto_dias", "Licencia por luto", 5, U.dias,
+                   date(2020, 1, 1), None, 2020, "Ley 1280 de 2009", "5 días hábiles, estable."),
+                pl("calamidad_domestica_dias_referencia", "Calamidad doméstica — referencia de días usuales", 3, U.dias,
+                   date(2020, 1, 1), None, 2020, "CST art. 57 núm. 6 (sin número de días fijado por la ley)",
+                   "La ley NO fija un número de días: es un permiso remunerado a criterio del empleador según "
+                   "la gravedad. Este valor es solo una referencia usual, no un tope legal."),
+
+                # --- Incapacidades ---
+                pl("incapacidad_general_dias_empresa", "Incapacidad por enfermedad general — días a cargo del empleador", 2, U.dias,
+                   date(2020, 1, 1), None, 2020, "Decreto 1406 de 1999 art. 40 / Ley 100 de 1993 art. 227",
+                   "Días 1 y 2 de cada incapicidad continua; desde el día 3 paga la EPS."),
+                pl("incapacidad_general_porcentaje", "Incapacidad por enfermedad general — % reconocido (días 1 a 90)", 2 / 3, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993 art. 227", "66.67% del IBC, con piso de 1 SMLMV."),
+                pl("incapacidad_general_porcentaje_dias91_180", "Incapacidad por enfermedad general — % reconocido (días 91 a 180)", 0.50, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Decreto 2943 de 2013", "50% del IBC, con piso de 1 SMLMV."),
+                pl("incapacidad_laboral_porcentaje", "Incapacidad de origen laboral (ARL) — % reconocido", 1.00, U.porcentaje,
+                   date(2020, 1, 1), None, 2020, "Decreto 1295 de 1994 / Ley 776 de 2002 art. 3",
+                   "100% del IBC desde el día 1, a cargo de la ARL."),
+
+                # --- UVT y topes ---
+                pl("uvt_valor", "Valor de la Unidad de Valor Tributario (UVT)", 49_799, U.pesos,
+                   date(2025, 1, 1), date(2025, 12, 31), 2025, "Resolución anual UVT — DIAN",
+                   "Valor 2025, como referencia histórica."),
+                pl("uvt_valor", "Valor de la Unidad de Valor Tributario (UVT)", 52_000, U.pesos,
+                   date(2026, 1, 1), None, 2026, "Resolución anual UVT — DIAN",
+                   "Estimado; CONFIRMAR contra la resolución DIAN real de noviembre/diciembre de 2025."),
+                pl("tope_ibc_salud_pension_smlmv", "Tope máximo de IBC para salud y pensión (en SMLMV)", 25, U.numero,
+                   date(2020, 1, 1), None, 2020, "Ley 100 de 1993, art. 5 (parág.)", "Estable."),
+
+                # --- Indemnización por despido sin justa causa (contrato a término indefinido) ---
+                pl("indemnizacion_salario_bajo_primer_anio_dias", "Indemnización término indefinido — primer año (salario < umbral)", 30, U.dias,
+                   date(2020, 1, 1), None, 2020, "CST art. 64, núm. 4", "30 días de salario por el primer año o fracción."),
+                pl("indemnizacion_salario_bajo_adicional_anio_dias", "Indemnización término indefinido — días adicionales por año (salario < umbral)", 20, U.dias,
+                   date(2020, 1, 1), None, 2020, "CST art. 64, núm. 4", "Por cada año adicional al primero, o proporcional por fracción."),
+                pl("indemnizacion_salario_alto_primer_anio_dias", "Indemnización término indefinido — primer año (salario ≥ umbral)", 20, U.dias,
+                   date(2020, 1, 1), None, 2020, "CST art. 64, núm. 4", "20 días de salario por el primer año o fracción."),
+                pl("indemnizacion_salario_alto_adicional_anio_dias", "Indemnización término indefinido — días adicionales por año (salario ≥ umbral)", 15, U.dias,
+                   date(2020, 1, 1), None, 2020, "CST art. 64, núm. 4", "Por cada año adicional al primero, o proporcional por fracción."),
+                pl("indemnizacion_umbral_salario_alto_smlmv", "Umbral salarial que define la tabla de indemnización aplicable (en SMLMV)", 10, U.numero,
+                   date(2020, 1, 1), None, 2020, "CST art. 64, núm. 4",
+                   "Trabajadores con 10 o más SMLMV usan la tabla de 'salario alto'."),
             ]
         )
 

@@ -243,7 +243,101 @@ calcula igual que los cumpleaños de la pantalla Empleados (mismo manejo del
 29 de febrero), pero sobre `fecha_ingreso` en vez de `fecha_nacimiento`, y
 sin alertar antes de que se cumpla el primer año.
 
-## 6. Requisitos
+## 6. Parámetros laborales y legales (motor de nómina colombiana)
+
+> **⚠️ Advertencia importante.** Este módulo es la primera fase de un motor
+> de nómina colombiano completo (cálculo de incapacidades, vacaciones,
+> prestaciones sociales, liquidación de contrato, indemnización, seguridad
+> social y PILA vienen en fases posteriores). Lo que existe hoy es el
+> **motor de configuración legal** — la base de la que dependerán esas
+> fases — ya sembrado con un catálogo inicial de parámetros. **Ninguno de
+> esos valores debe usarse para una nómina real todavía**: todos se cargan
+> con `pendiente_verificacion = true` a propósito, porque son la mejor
+> estimación disponible al construir este módulo (citando la norma que se
+> cree aplicable) pero no se pudieron confirmar contra una fuente oficial
+> en ese momento — en particular el SMLMV y la UVT de 2026 (dependen de
+> decretos de diciembre de 2025) y varias fechas exactas de la Ley 2466 de
+> 2025 (reforma laboral). Un profesional de nómina/legal colombiano debe
+> revisar y confirmar (o corregir) cada parámetro desde esta pantalla antes
+> de que cualquier cálculo futuro se apoye en ellos.
+
+### 6.1. Por qué un motor de parámetros, y no constantes en el código
+
+Todo el resto del sistema de nómina colombiana que se construya en fases
+siguientes (incapacidades, vacaciones, prestaciones, liquidación,
+indemnización, seguridad social) debe leer sus porcentajes, topes y
+fórmulas de aquí — nunca escribirlos directamente en Python. La razón es
+que la legislación laboral colombiana cambia por tramos de vigencia: por
+ejemplo, el recargo dominical/festivo subió de 75% a 80%, luego a 90% y
+llegará a 100%, cada tramo en una fecha distinta (Ley 2466 de 2025). Una
+nómina de 2026 debe seguir mostrando el 90% con el que se calculó, aunque
+en 2027 la norma ya diga 100%. Por eso cada parámetro se guarda como una o
+varias **vigencias** con su propio rango de fechas, y nunca se sobrescribe
+una vigencia ya cerrada — si una norma cambia, se cierra la vigencia
+abierta y se crea una nueva (automáticamente, al registrar la siguiente).
+
+### 6.2. Pantalla: Configuración > Parámetros laborales y legales
+
+Cada parámetro tiene: nombre, código (identificador único, ej.
+`recargo_dominical_festivo`), descripción, valor, unidad (porcentaje,
+pesos, días, horas, semanas, meses, número, u "hora del día" para los
+horarios de jornada nocturna), fecha inicial y final de vigencia, año,
+norma relacionada, observaciones, estado activo/inactivo, si está
+pendiente de verificación legal, y quién hizo el último cambio y cuándo.
+
+La pantalla filtra por código, año y estado de verificación, y muestra un
+aviso con cuántos parámetros siguen pendientes de confirmar. Cada fila
+indica si su vigencia está **Vigente**, **Histórica** (ya cerrada) o
+**Futura** (todavía no empieza).
+
+- **Nueva vigencia**: crea una fila nueva. Si ya existe una vigencia
+  abierta (sin fecha final) para el mismo código que empieza antes, el
+  sistema la cierra automáticamente el día anterior al inicio de la
+  nueva — así nunca compiten dos vigencias por la misma fecha, y la
+  anterior queda intacta como historia. Si la nueva vigencia se cruza con
+  una vigencia **ya cerrada** (histórica), la operación se rechaza
+  (`409`): no se permite alterar cómo se calculó algo en el pasado.
+- **Editar**: solo cambia metadatos (nombre, descripción, norma,
+  observaciones, estado, verificación) — nunca el valor ni las fechas. Si
+  el valor realmente cambió, se crea una vigencia nueva en vez de editar
+  la existente.
+- **Eliminar**: solo se puede borrar la vigencia más reciente de su
+  código (equivale a deshacer la última creación), y si al crearla se
+  había cerrado automáticamente la vigencia anterior, esa se reabre. Esto
+  evita dejar huecos en mitad del historial normativo.
+
+### 6.3. Cómo lo usan los cálculos (`utils.obtener_parametro`)
+
+Internamente, cualquier función de cálculo que necesite un valor legal
+llama a `obtener_parametro(db, "codigo", fecha)`, que filtra por código,
+`activo = true`, y la vigencia cuyo rango de fechas incluya `fecha` —
+nunca toma "la fila más reciente" a secas. Si no existe ninguna vigencia
+configurada para ese código en esa fecha, lanza un error explícito
+(`ParametroLegalNoEncontrado`) en vez de asumir un valor por defecto: un
+cálculo salarial no debe adivinar un porcentaje que nadie configuró.
+
+### 6.4. Catálogo inicial sembrado
+
+El script de seed carga ~59 vigencias repartidas en estos códigos (todas
+`pendiente_verificacion = true`):
+
+| Grupo | Códigos |
+|-------|---------|
+| Salario y jornada | `salario_minimo`, `auxilio_transporte`, `jornada_semanal_maxima`, `horas_mensuales_calculo` |
+| Seguridad social | `porcentaje_salud_empleado/empleador`, `porcentaje_pension_empleado/empleador`, `fondo_solidaridad_*_smlmv` (tabla por tramos de IBC), `caja_compensacion`, `sena`, `icbf`, `exoneracion_parafiscales_umbral_smlmv`, `arl_riesgo_i` a `arl_riesgo_v` |
+| Jornada nocturna y recargos | `hora_inicio_jornada_nocturna`, `hora_fin_jornada_nocturna`, `recargo_nocturno`, `recargo_hora_extra_diurna/nocturna`, `recargo_dominical_festivo` (con sus 4 tramos históricos/vigentes/futuros), `recargo_hora_extra_dominical_diurna/nocturna` |
+| Prestaciones sociales | `porcentaje_cesantias`, `porcentaje_intereses_cesantias`, `porcentaje_prima_servicios`, `dias_vacaciones_anuales` |
+| Licencias | `licencia_maternidad_semanas`, `licencia_paternidad_dias`, `licencia_luto_dias`, `calamidad_domestica_dias_referencia` |
+| Incapacidades | `incapacidad_general_dias_empresa`, `incapacidad_general_porcentaje`, `incapacidad_general_porcentaje_dias91_180`, `incapacidad_laboral_porcentaje` |
+| Tributario y topes | `uvt_valor`, `tope_ibc_salud_pension_smlmv` |
+| Indemnización | `indemnizacion_salario_bajo/alto_primer_anio_dias`, `indemnizacion_salario_bajo/alto_adicional_anio_dias`, `indemnizacion_umbral_salario_alto_smlmv` |
+
+La tabla de retención en la fuente (progresiva en UVT) y las reglas
+completas de indemnización por tipo de contrato/causal se dejan para la
+fase de Nómina e Indemnización, respectivamente — aquí solo vive el
+parámetro base (`uvt_valor`) del que dependerán.
+
+## 7. Requisitos
 
 - Python 3.11+
 - Docker y Docker Compose (para PostgreSQL local) — o una instancia de PostgreSQL existente
@@ -251,9 +345,9 @@ sin alertar antes de que se cumpla el primer año.
 
 ---
 
-## 7. Puesta en marcha — Backend
+## 8. Puesta en marcha — Backend
 
-### 7.1. Levantar PostgreSQL
+### 8.1. Levantar PostgreSQL
 
 ```bash
 docker compose up -d
@@ -262,7 +356,7 @@ docker compose up -d
 Esto crea una base de datos `ecodes_th` en `localhost:5432` con usuario/clave
 `ecodes` / `ecodes` (ver `docker-compose.yml`).
 
-### 7.2. Configurar variables de entorno
+### 8.2. Configurar variables de entorno
 
 ```bash
 cp .env.example backend/.env
@@ -279,7 +373,7 @@ usar una clave JWT propia. Variables disponibles:
 | `ACCESS_TOKEN_EXPIRE_MINUTES`   | Minutos de validez del token (por defecto 480 = 8h)        |
 | `CORS_ORIGINS`                  | Orígenes permitidos, separados por coma                    |
 
-### 7.3. Instalar dependencias y crear el entorno virtual
+### 8.3. Instalar dependencias y crear el entorno virtual
 
 ```bash
 cd backend
@@ -288,7 +382,7 @@ source .venv/bin/activate        # En Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 7.4. Poblar la base de datos con datos de ejemplo
+### 8.4. Poblar la base de datos con datos de ejemplo
 
 Las tablas se crean automáticamente al iniciar la app, pero para tener datos de
 demo (empleados, proyectos, participaciones, novedades y nómina de ejemplo):
@@ -305,7 +399,7 @@ Esto crea dos usuarios de prueba:
 > El script de seed **borra y vuelve a crear todas las tablas** (`drop_all` +
 > `create_all`) — solo debe usarse en ambientes de desarrollo/demo.
 
-### 7.5. Iniciar la API
+### 8.5. Iniciar la API
 
 ```bash
 uvicorn app.main:app --reload --port 8000
@@ -316,7 +410,7 @@ interactiva (Swagger) en `http://localhost:8000/docs`.
 
 ---
 
-## 8. Puesta en marcha — Frontend
+## 9. Puesta en marcha — Frontend
 
 El frontend es HTML/CSS/JS puro, sin dependencias ni build step. Solo necesita
 servirse como archivos estáticos (no se puede abrir con `file://` porque el
@@ -341,7 +435,7 @@ para que el navegador pueda llamar a la API.
 
 ---
 
-## 9. Flujo de uso
+## 10. Flujo de uso
 
 1. Inicia sesión en `index.html` seleccionando el rol (Talento Humano o
    Administrativo) e ingresando usuario/contraseña.
@@ -376,24 +470,29 @@ para que el navegador pueda llamar a la API.
    expediente del empleado (contrato por vencer, período de prueba,
    certificaciones, documentos, evaluaciones, capacitaciones, exámenes
    médicos e incapacidad activa — ver sección 5.2).
-10. El botón **"Exportar a Excel"** (visible en todas las pantallas) descarga
+10. **Configuración** administra los parámetros laborales y legales del
+    motor de nómina colombiana (ver sección 6) — por ahora solo visible
+    como pantalla independiente, todavía no conectada a un cálculo de
+    nómina real.
+11. El botón **"Exportar a Excel"** (visible en todas las pantallas) descarga
     un libro con una hoja por tabla (`empleados`, `estudios`, `experiencia`,
     `proyectos`, `participaciones`, `nomina`, `novedades`, `solicitudes`,
     `areas`, `cargos`, `vacantes`, `certificaciones`, `documentos`,
-    `evaluaciones`, `capacitaciones`, `examenes_medicos`), con columnas en
-    `snake_case` y los mismos `id` como llaves, listo para conectar en
-    Power BI y construir las relaciones e indicadores de rotación, costos
-    laborales prorrateados y ausentismo.
+    `evaluaciones`, `capacitaciones`, `examenes_medicos`,
+    `parametros_legales`), con columnas en `snake_case` y los mismos `id`
+    como llaves, listo para conectar en Power BI y construir las
+    relaciones e indicadores de rotación, costos laborales prorrateados y
+    ausentismo.
 
 ---
 
-## 10. Reglas de liquidación de nómina
+## 11. Reglas de liquidación de nómina
 
 Todas las tasas y valores viven en un solo lugar (`backend/app/utils.py`,
 función `liquidar_nomina`) y los usan tanto el endpoint de nómina como el
 script de seed, así que nunca se desincronizan.
 
-### 10.1. Devengado
+### 11.1. Devengado
 
 | Concepto | Valor 2026 | Regla |
 |----------|-----------:|-------|
@@ -402,7 +501,7 @@ script de seed, así que nunca se desincronizan.
 | **Auxilio de transporte** | **$249.095** | Obligatorio por ley **solo** para quien devengue hasta 2 SMLMV. No depende del tipo de cargo. Si se deja en `0` al registrar la nómina, el sistema lo aplica automáticamente. |
 | **Auxilio de movilidad** | lo define Ecodes | Auxilio interno para roles de campo. **No es salarial ni prestacional**: no entra en ninguna base, solo suma al costo. Al ser una decisión de la empresa, **se registra persona a persona** y el sistema nunca lo calcula ni lo asume. |
 
-### 10.2. Deducciones al trabajador
+### 11.2. Deducciones al trabajador
 
 | Concepto | Tasa | Base |
 |----------|-----:|------|
@@ -412,7 +511,7 @@ script de seed, así que nunca se desincronizan.
 El campo `descuentos` queda libre para descuentos adicionales (préstamos,
 embargos, etc.); salud y pensión se calculan aparte.
 
-### 10.3. Costo adicional que asume el empleador
+### 11.3. Costo adicional que asume el empleador
 
 | Concepto | Tasa mensual | Base | Equivalente anual |
 |----------|-------------:|------|-------------------|
@@ -451,7 +550,7 @@ riesgo I), para no dejar de calcular algo razonable.
 > (`TASA_SALUD_EMPLEADOR`, etc. en `backend/app/utils.py`) y el cálculo las
 > incluye automáticamente.
 
-### 10.3.1. Afiliaciones y datos bancarios
+### 11.3.1. Afiliaciones y datos bancarios
 
 Además de lo que entra en el cálculo de nómina, la ficha del empleado guarda
 los datos que Contabilidad necesita para pagarle y afiliarlo: EPS, AFP,
@@ -460,7 +559,7 @@ cuenta. Son campos de texto libre (no hay una lista cerrada de entidades,
 porque cambian y varían según el país), opcionales para no bloquear el
 registro de alguien mientras se termina de recolectar su información.
 
-### 10.4. Periodicidad de pago: mensual y quincenal
+### 11.4. Periodicidad de pago: mensual y quincenal
 
 No todo el mundo cobra el mismo día. Cada empleado tiene un campo
 `periodicidad_pago`:
@@ -492,7 +591,7 @@ para poder analizar el flujo de caja por fecha de desembolso en Power BI.
 > se suman sus registros, de modo que un empleado quincenal aporta sus dos
 > quincenas y no se subestima su costo.
 
-### 10.5. Por qué importa para los indicadores
+### 11.5. Por qué importa para los indicadores
 
 El **costo por proyecto se prorratea sobre el costo real del empleador**, no
 sobre el salario: una persona cuesta entre 1,34× y 1,62× su salario según su
@@ -510,7 +609,7 @@ La hoja `nomina` del Excel exporta el desglose completo (`salud_empleado`,
 
 ---
 
-## 11. Certificado laboral en PDF
+## 12. Certificado laboral en PDF
 
 Desde la ficha de cada empleado (panel lateral, sección **Documentos**) se
 genera un certificado laboral en PDF con el logo y los datos de SU empresa
@@ -530,7 +629,7 @@ fecha de ingreso. Si la persona ya no está activa, el texto pasa a tiempo
 pasado y agrega la fecha de retiro, que se toma de la novedad de tipo
 **Salida**. Lo pueden emitir los dos roles: es una consulta, no modifica nada.
 
-### 11.1. Datos de la empresa y de quien firma
+### 12.1. Datos de la empresa y de quien firma
 
 El sistema **no se inventa** el NIT ni el nombre de quien firma: esos datos
 salen de la empresa asignada al empleado, administrada desde Empleados >
@@ -541,7 +640,7 @@ se le asigne una.
 Las variables `EMPRESA_*` y `FIRMANTE_*` del `.env` solo importan para la
 primera empresa que se crea al sembrar la base vacía (ver `.env.example`).
 
-### 11.2. Si pides el certificado con salario y no hay nómina
+### 12.2. Si pides el certificado con salario y no hay nómina
 
 El sistema responde con un mensaje explicando que esa persona no tiene nómina
 registrada, en vez de emitir un certificado que no dice nada del salario.
@@ -549,7 +648,7 @@ Registra la nómina del período o genera el certificado sin salario.
 
 ---
 
-## 12. Endpoints principales
+## 13. Endpoints principales
 
 | Método | Ruta                                          | Descripción                                   |
 |--------|------------------------------------------------|------------------------------------------------|
@@ -579,6 +678,9 @@ Registra la nómina del período o genera el certificado sin salario.
 | POST/DELETE | `/empleados/{id}/evaluaciones[/{id}]`      | Evaluaciones de desempeño                      |
 | POST/DELETE | `/empleados/{id}/capacitaciones[/{id}]`    | Capacitaciones                                 |
 | POST/DELETE | `/empleados/{id}/examenes-medicos[/{id}]`  | Exámenes médicos ocupacionales                 |
+| GET/POST/PUT/DELETE | `/parametros-legales[/{id}]`      | Vigencias de parámetros legales (`?codigo=&anio=&activo=&pendiente_verificacion=` para filtrar) |
+| GET    | `/parametros-legales/codigos`                  | Catálogo de códigos ya usados (para selectores) |
+| GET    | `/parametros-legales/{codigo}/vigente`         | La vigencia que aplica en una fecha (`?fecha=`, por defecto hoy) |
 | GET/POST/DELETE | `/nomina[/{id}]` · `/nomina/resumen`  | Registros de nómina y resumen del mes          |
 | GET    | `/alertas` · `/alertas/vacaciones` · `/alertas/sobreasignacion` · `/alertas/expediente` · `/alertas/aniversarios` | Alertas calculadas |
 | GET    | `/exportar/excel`                              | Descarga el libro de Excel para Power BI       |
@@ -589,7 +691,7 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 13. Notas de diseño
+## 14. Notas de diseño
 
 - Paleta derivada del logo de Ecodes: verde hoja y azul acento sobre fondo
   blanco dominante, con soporte completo de modo oscuro (variables CSS para
@@ -607,13 +709,13 @@ si el usuario autenticado tiene rol Administrativo.
 
 ---
 
-## 14. Instalación en el servidor de Ecodes (recomendada)
+## 15. Instalación en el servidor de Ecodes (recomendada)
 
 Esta es la forma en que el sistema queda funcionando **dentro de la empresa**:
 en el servidor local, sin nube, y accesible desde los computadores de la
 oficina por el navegador. Los datos de los empleados nunca salen de Ecodes.
 
-### 14.1. Cómo queda montado
+### 15.1. Cómo queda montado
 
 ```
     Servidor de la oficina                    Computadores del equipo
@@ -628,7 +730,7 @@ Un solo programa sirve la API **y** las pantallas, así que no hay nada que
 instalar en los computadores del equipo: entran a
 `http://IP-DEL-SERVIDOR:8000` desde Chrome o Edge y listo.
 
-### 14.2. Instalación
+### 15.2. Instalación
 
 En el servidor hace falta **Docker Desktop** (Windows) o **Docker Engine**
 (Linux). Es lo único que se instala a mano.
@@ -659,7 +761,7 @@ más: `restart: unless-stopped` en `docker-compose.yml` se encarga.
 | Ver qué está pasando | `docker compose logs -f app` |
 | Actualizar a una versión nueva | `docker compose up -d --build` |
 
-### 14.3. Respaldos
+### 15.3. Respaldos
 
 Los datos viven dentro de Docker, no en una carpeta suelta, así que
 copiar archivos no alcanza: hay que generar el respaldo.
@@ -681,7 +783,7 @@ Ojo, reemplaza **todo** lo que haya en la base.
 > restauró no es un respaldo. Haz uno, restáuralo y verifica que los datos
 > estén completos.
 
-### 14.4. Seguridad en la red de la empresa
+### 15.4. Seguridad en la red de la empresa
 
 - **El sistema no va expuesto a internet.** Solo debe verse dentro de la red
   de la oficina. Si alguien necesita entrar desde afuera, que sea por la VPN
@@ -698,7 +800,7 @@ Ojo, reemplaza **todo** lo que haya en la base.
 
 ---
 
-## 15. Publicar el sistema en internet (Render + Vercel)
+## 16. Publicar el sistema en internet (Render + Vercel)
 
 > Esto es para **mostrar el sistema por fuera de la empresa** — la
 > sustentación de la tesis, por ejemplo. Para el uso real de Ecodes sirve la
@@ -717,7 +819,7 @@ archivos estáticos.
 > ambas cosas en su plan gratuito. Si lo intentas desplegar en Vercel tal cual,
 > falla con `FUNCTION_INVOCATION_FAILED` porque no encuentra la base de datos.
 
-### 15.1. Backend en Render
+### 16.1. Backend en Render
 
 El archivo `render.yaml` en la raíz ya describe el servicio y la base de datos,
 así que no hay que configurar nada a mano.
@@ -760,7 +862,7 @@ así que no hay que configurar nada a mano.
 
 La documentación interactiva de la API queda en `https://TU-SERVICIO.onrender.com/docs`.
 
-### 15.2. Frontend en Vercel
+### 16.2. Frontend en Vercel
 
 1. Abre `frontend/js/config.js` y pega la URL que te dio Render:
 
@@ -795,7 +897,7 @@ El `CORS` ya está resuelto: `render.yaml` define
 definitivo como las URLs de vista previa que Vercel genera en cada despliegue.
 Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 
-### 15.3. Cosas que conviene saber del plan gratuito
+### 16.3. Cosas que conviene saber del plan gratuito
 
 | | |
 |---|---|
@@ -803,7 +905,7 @@ Si más adelante usas un dominio propio, agrégalo a `CORS_ORIGINS` en Render.
 | **La base de datos caduca** | Las bases PostgreSQL gratuitas de Render expiran a los 30 días. Para un proyecto de tesis alcanza, pero anótalo. |
 | **Las contraseñas del seed son públicas** | `th / th12345` y `admin / admin12345` están en el repositorio. Sirven para la demo; si el sistema llegara a manejar datos reales de empleados, cámbialas antes. |
 
-### 15.4. Otras opciones
+### 16.4. Otras opciones
 
 - **Backend**: cualquier host compatible con ASGI (Uvicorn/Gunicorn) —
   Railway, Fly.io, un VPS con Docker, etc. Solo hay que configurar

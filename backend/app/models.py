@@ -752,3 +752,67 @@ class Nomina(Base):
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     empleado: Mapped["Empleado"] = relationship(back_populates="nominas")
+
+
+# ---------------------------------------------------------------------------
+# Parámetros legales (motor de configuración laboral — Colombia)
+#
+# Ningún porcentaje, tope ni fórmula de nómina colombiana debe quedar escrito
+# directamente en el código (ver utils.py de este módulo). En su lugar, cada
+# regla vive aquí como una o varias "vigencias": un mismo código (por
+# ejemplo `recargo_dominical_festivo`) puede tener varias filas con rangos de
+# fecha distintos, y el sistema escoge la vigencia correcta según la fecha de
+# la novedad o del período de nómina que se esté calculando — nunca la más
+# reciente a secas. Cuando una norma cambia, se cierra la vigencia anterior
+# (poniéndole fecha_fin_vigencia) y se crea una nueva; las vigencias ya
+# usadas en una nómina cerrada no se modifican, para que esa nómina siga
+# mostrando exactamente los parámetros con los que se calculó.
+# ---------------------------------------------------------------------------
+
+class UnidadParametro(str, enum.Enum):
+    porcentaje = "Porcentaje"  # se guarda como fracción: 0.04 = 4%
+    pesos = "Pesos"
+    dias = "Días"
+    horas = "Horas"
+    semanas = "Semanas"
+    meses = "Meses"
+    numero = "Número"  # conteos o multiplicadores sin unidad propia (p. ej. "25" de "25 SMLMV")
+    hora_del_dia = "Hora del día"  # 19.0 = 7:00 p.m., en formato 24 horas
+
+
+class ParametroLegal(Base):
+    """Un valor de la legislación laboral/de seguridad social colombiana,
+    vigente durante un rango de fechas. Ver utils.obtener_parametro para la
+    función que resuelve "cuál vigencia aplica" dada una fecha, y
+    utils.PARAMETROS_LEGALES_CODIGOS para el catálogo de códigos conocidos.
+    """
+
+    __tablename__ = "parametros_legales"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(80), index=True)
+    nombre: Mapped[str] = mapped_column(String(200))
+    descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    valor: Mapped[float] = mapped_column(Numeric(18, 6))
+    unidad: Mapped[UnidadParametro] = mapped_column(Enum(UnidadParametro, name="unidad_parametro"))
+    fecha_inicio_vigencia: Mapped[date] = mapped_column(Date)
+    # Nula = vigente indefinidamente (hasta que una vigencia nueva la cierre).
+    fecha_fin_vigencia: Mapped[date | None] = mapped_column(Date, nullable=True)
+    anio: Mapped[int] = mapped_column()
+    norma: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    observaciones: Mapped[str | None] = mapped_column(Text, nullable=True)
+    activo: Mapped[bool] = mapped_column(default=True)
+    # True hasta que un administrador confirme el valor contra la norma real
+    # (ver sección de Configuración legal): el sistema nunca marca esto en
+    # False por su cuenta.
+    pendiente_verificacion: Mapped[bool] = mapped_column(default=True)
+
+    usuario_cambio_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True
+    )
+    fecha_cambio: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    usuario_cambio: Mapped["Usuario | None"] = relationship()

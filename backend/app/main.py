@@ -18,6 +18,7 @@ from app.routers import (
     nomina,
     novedades,
     organigrama,
+    parametros_legales,
     participaciones,
     proyectos,
     solicitudes,
@@ -63,6 +64,7 @@ app.include_router(participaciones.router)
 app.include_router(novedades.router)
 app.include_router(solicitudes.router)
 app.include_router(organigrama.router)
+app.include_router(parametros_legales.router)
 app.include_router(nomina.router)
 app.include_router(alertas.router)
 app.include_router(exportar.router)

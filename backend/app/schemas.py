@@ -25,6 +25,7 @@ from app.models import (
     TipoModificacionContrato,
     TipoNovedad,
     TipoSolicitud,
+    UnidadParametro,
 )
 
 
@@ -711,3 +712,49 @@ class CumpleañosOut(BaseModel):
     proxima_fecha: date
     dias_restantes: int
     etiqueta: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Parámetros legales (motor de configuración laboral — Colombia)
+# ---------------------------------------------------------------------------
+
+class ParametroLegalBase(BaseModel):
+    codigo: str = Field(max_length=80)
+    nombre: str = Field(max_length=200)
+    descripcion: Optional[str] = None
+    valor: float
+    unidad: UnidadParametro
+    fecha_inicio_vigencia: date
+    fecha_fin_vigencia: Optional[date] = None
+    anio: int
+    norma: Optional[str] = Field(default=None, max_length=300)
+    observaciones: Optional[str] = None
+    activo: bool = True
+    pendiente_verificacion: bool = True
+
+
+class ParametroLegalCreate(ParametroLegalBase):
+    pass
+
+
+class ParametroLegalUpdate(BaseModel):
+    """Solo permite corregir metadatos y marcar la verificación legal — NO
+    el valor ni las fechas de vigencia: si el valor cambia, se crea una
+    nueva vigencia (POST) en vez de sobrescribir la existente, precisamente
+    para no alterar cómo se calculó una nómina ya cerrada con este dato."""
+
+    nombre: Optional[str] = Field(default=None, max_length=200)
+    descripcion: Optional[str] = None
+    norma: Optional[str] = Field(default=None, max_length=300)
+    observaciones: Optional[str] = None
+    activo: Optional[bool] = None
+    pendiente_verificacion: Optional[bool] = None
+
+
+class ParametroLegalOut(ParametroLegalBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    usuario_cambio_id: Optional[int] = None
+    usuario_cambio_nombre: Optional[str] = None
+    fecha_cambio: datetime
+    vigente_actualmente: bool = False

@@ -2,6 +2,9 @@ import calendar
 from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
 from app.models import (
     Area,
     EstadoAprobacion,
@@ -9,6 +12,7 @@ from app.models import (
     Empleado,
     NivelRiesgoArl,
     Novedad,
+    ParametroLegal,
     PeriodicidadPago,
     Proyecto,
     TipoDocumentoExpediente,
@@ -418,6 +422,54 @@ def porcentaje_rotacion_proyecto(proyecto: Proyecto) -> float:
 
 def novedades_del_mes(empleado: Empleado, periodo: str) -> int:
     return len([n for n in empleado.novedades if n.fecha.strftime("%Y-%m") == periodo])
+
+
+# ---------------------------------------------------------------------------
+# Parámetros legales (motor de configuración laboral — Colombia)
+#
+# Ningún porcentaje, tope ni valor legal se escribe aquí como constante:
+# todo se resuelve en tiempo de cálculo contra la tabla `parametros_legales`
+# (ver models.ParametroLegal), eligiendo la vigencia correcta para la fecha
+# que corresponda — nunca "la más reciente a secas" — para que una novedad o
+# una nómina de una fecha pasada siga calculándose con el valor que estaba
+# vigente entonces, aunque la norma haya cambiado después.
+# ---------------------------------------------------------------------------
+
+class ParametroLegalNoEncontrado(Exception):
+    """No existe una vigencia configurada para ese código en esa fecha. Se
+    lanza en vez de usar un valor por defecto a propósito: un cálculo
+    legal/salarial no debe "adivinar" un porcentaje que nadie configuró."""
+
+
+def obtener_parametro(db: Session, codigo: str, fecha: date | None = None) -> ParametroLegal:
+    """La vigencia activa de `codigo` para `fecha` (por defecto, hoy)."""
+    fecha = fecha or date.today()
+    parametro = (
+        db.query(ParametroLegal)
+        .filter(
+            ParametroLegal.codigo == codigo,
+            ParametroLegal.activo.is_(True),
+            ParametroLegal.fecha_inicio_vigencia <= fecha,
+            or_(
+                ParametroLegal.fecha_fin_vigencia.is_(None),
+                ParametroLegal.fecha_fin_vigencia >= fecha,
+            ),
+        )
+        .order_by(ParametroLegal.fecha_inicio_vigencia.desc())
+        .first()
+    )
+    if parametro is None:
+        raise ParametroLegalNoEncontrado(
+            f"No hay un parámetro legal «{codigo}» vigente el {fecha.isoformat()}. "
+            "Debe configurarse en Configuración > Parámetros legales antes de poder "
+            "calcular esto."
+        )
+    return parametro
+
+
+def valor_parametro(db: Session, codigo: str, fecha: date | None = None) -> float:
+    """Azúcar sintáctico para cuando solo se necesita el número, no toda la fila."""
+    return float(obtener_parametro(db, codigo, fecha).valor)
 
 
 # ---------------------------------------------------------------------------
