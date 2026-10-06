@@ -231,6 +231,18 @@ se registran desde la propia ficha del empleado (igual que Formación
 académica o Experiencia laboral): son sub-listas de la ficha, no pantallas
 aparte, y cada una se agrega o se elimina ahí mismo.
 
+### 5.3. Aniversarios laborales
+
+Al crear un empleado, la **fecha de ingreso** es un campo obligatorio del
+formulario (`fecha_ingreso`, ver sección 3) — de ahí sale tanto la
+antigüedad que se muestra en su ficha como esta alerta. Treinta días antes
+de que el empleado cumpla 1 año, 2 años, 3 años, etc. con la empresa
+(contados desde esa fecha), aparece una alerta "Aniversario laboral" en la
+pantalla de Alertas, con cuántos años cumple y en qué fecha exacta. Se
+calcula igual que los cumpleaños de la pantalla Empleados (mismo manejo del
+29 de febrero), pero sobre `fecha_ingreso` en vez de `fecha_nacimiento`, y
+sin alertar antes de que se cumpla el primer año.
+
 ## 6. Requisitos
 
 - Python 3.11+
@@ -568,7 +580,7 @@ Registra la nómina del período o genera el certificado sin salario.
 | POST/DELETE | `/empleados/{id}/capacitaciones[/{id}]`    | Capacitaciones                                 |
 | POST/DELETE | `/empleados/{id}/examenes-medicos[/{id}]`  | Exámenes médicos ocupacionales                 |
 | GET/POST/DELETE | `/nomina[/{id}]` · `/nomina/resumen`  | Registros de nómina y resumen del mes          |
-| GET    | `/alertas` · `/alertas/vacaciones` · `/alertas/sobreasignacion` · `/alertas/expediente` | Alertas calculadas |
+| GET    | `/alertas` · `/alertas/vacaciones` · `/alertas/sobreasignacion` · `/alertas/expediente` · `/alertas/aniversarios` | Alertas calculadas |
 | GET    | `/exportar/excel`                              | Descarga el libro de Excel para Power BI       |
 
 Todas las rutas (excepto `/auth/login`) requieren el header

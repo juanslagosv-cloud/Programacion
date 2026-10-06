@@ -699,6 +699,7 @@ class AlertasResumen(BaseModel):
     nomina: list[AlertaNomina]
     novedades_sin_procesar: list[NovedadOut]
     expediente: list[AlertaGenerica] = []
+    aniversarios: list[AlertaGenerica] = []
 
 
 class CumpleañosOut(BaseModel):

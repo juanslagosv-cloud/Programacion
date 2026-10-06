@@ -292,6 +292,25 @@ def antiguedad_meses(empleado: Empleado) -> int:
     return meses_entre(empleado.fecha_ingreso, date.today())
 
 
+def proximo_aniversario_laboral(empleado: Empleado, hoy: date | None = None) -> tuple[date, int]:
+    """Próxima fecha en la que el empleado cumple años con la empresa (contados
+    desde `fecha_ingreso`) y cuántos años cumple en esa fecha. Si hoy mismo es
+    el aniversario, cuenta como "próximo" (igual que con los cumpleaños)."""
+    hoy = hoy or date.today()
+    ingreso = empleado.fecha_ingreso
+    try:
+        proxima = ingreso.replace(year=hoy.year)
+    except ValueError:  # 29 de febrero
+        proxima = ingreso.replace(year=hoy.year, day=28, month=2)
+    if proxima < hoy:
+        try:
+            proxima = proxima.replace(year=hoy.year + 1)
+        except ValueError:
+            proxima = proxima.replace(year=hoy.year + 1, day=28)
+    anios = proxima.year - ingreso.year
+    return proxima, anios
+
+
 def duracion_contrato(contrato) -> str:
     """Texto de la duración del contrato. No se guarda como columna aparte
     para que nunca quede desincronizada de fecha_inicio/fecha_fin."""

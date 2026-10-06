@@ -26,6 +26,9 @@
   function iconExpediente() {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
   }
+  function iconAniversario() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>';
+  }
 
   function render(main, data) {
     const totalAlertas =
@@ -33,7 +36,8 @@
       data.sobreasignacion.length +
       data.nomina.length +
       data.novedades_sin_procesar.length +
-      data.expediente.length;
+      data.expediente.length +
+      data.aniversarios.length;
 
     if (totalAlertas === 0) {
       main.innerHTML = `
@@ -116,6 +120,24 @@
           <div class="alert-item-body">
             <div class="alert-item-title">${escapeHtml(n.empleado_nombre)} · ${n.tipo}</div>
             <div class="alert-item-desc">${formatDate(n.fecha)}${n.detalle ? ` — ${escapeHtml(n.detalle)}` : ""}</div>
+          </div>
+        </div>`
+          )
+          .join("")
+      )}
+
+      ${section(
+        "Aniversarios laborales",
+        iconAniversario(),
+        data.aniversarios.length,
+        data.aniversarios
+          .map(
+            (a) => `
+        <div class="alert-item fade-up">
+          <div class="alert-item-icon icon-info">${iconAniversario()}</div>
+          <div class="alert-item-body">
+            <div class="alert-item-title">${escapeHtml(a.empleado_nombre)}</div>
+            <div class="alert-item-desc">${escapeHtml(a.descripcion)}</div>
           </div>
         </div>`
           )

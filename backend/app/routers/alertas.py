@@ -23,6 +23,7 @@ from app.utils import (
     dias_para_fin_periodo_prueba,
     meses_entre,
     porcentaje_total_empleado,
+    proximo_aniversario_laboral,
     tipos_documento_faltantes,
 )
 
@@ -32,6 +33,7 @@ UMBRAL_DIAS_PENDIENTES = 15
 UMBRAL_MESES_SIN_TOMAR = 11
 UMBRAL_SOBREASIGNACION_ALERTA = 90
 UMBRAL_SOBREASIGNACION_CRITICO = 100
+UMBRAL_DIAS_ANIVERSARIO = 30
 
 
 def _alertas_vacaciones(db: Session) -> list[AlertaVacaciones]:
@@ -107,6 +109,33 @@ def _alertas_nomina(db: Session) -> list[AlertaNomina]:
                 nivel="alerta",
             )
         )
+    return alertas
+
+
+def _alertas_aniversarios(db: Session) -> list[AlertaGenerica]:
+    """Aniversario laboral (1 año, 2 años, etc. con la empresa desde
+    `fecha_ingreso`), dentro de los próximos UMBRAL_DIAS_ANIVERSARIO días."""
+    empleados = db.query(Empleado).filter(Empleado.estado == EstadoEmpleado.activo).all()
+    alertas = []
+    for e in empleados:
+        proxima, anios = proximo_aniversario_laboral(e)
+        if anios < 1:
+            continue  # todavía no cumple ni el primer año
+        dias = (proxima - date.today()).days
+        if 0 <= dias <= UMBRAL_DIAS_ANIVERSARIO:
+            etiqueta = "año" if anios == 1 else "años"
+            alertas.append(
+                AlertaGenerica(
+                    tipo="Aniversario laboral",
+                    empleado_id=e.id,
+                    empleado_nombre=e.nombre_completo,
+                    foto_url=e.foto_url,
+                    descripcion=f"Cumple {anios} {etiqueta} con la empresa el {proxima.isoformat()}",
+                    fecha=proxima,
+                    nivel="info",
+                )
+            )
+    alertas.sort(key=lambda a: a.fecha)
     return alertas
 
 
@@ -288,6 +317,11 @@ def alertas_expediente(db: Session = Depends(get_db), current_user=Depends(get_c
     return _alertas_expediente(db)
 
 
+@router.get("/aniversarios", response_model=list[AlertaGenerica])
+def alertas_aniversarios(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    return _alertas_aniversarios(db)
+
+
 @router.get("", response_model=AlertasResumen)
 def alertas_resumen(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     novedades_sin_procesar = (
@@ -303,4 +337,5 @@ def alertas_resumen(db: Session = Depends(get_db), current_user=Depends(get_curr
         nomina=_alertas_nomina(db),
         novedades_sin_procesar=[novedad_to_out(n) for n in novedades_sin_procesar],
         expediente=_alertas_expediente(db),
+        aniversarios=_alertas_aniversarios(db),
     )
