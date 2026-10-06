@@ -566,7 +566,7 @@
 
   function nodoJefaturaHtml(n) {
     return `
-      <div class="org-node">
+      <li>
         <div class="org-node-card">
           ${avatarHtml(n.nombre, n.foto_url, 30)}
           <div>
@@ -574,8 +574,8 @@
             <div class="org-node-sub">${escapeHtml(n.nombre_cargo)}${n.reportes.length ? ` · ${n.reportes.length} persona(s) a cargo` : ""}</div>
           </div>
         </div>
-        ${n.reportes.length ? `<div class="org-node-children">${n.reportes.map(nodoJefaturaHtml).join("")}</div>` : ""}
-      </div>
+        ${n.reportes.length ? `<ul>${n.reportes.map(nodoJefaturaHtml).join("")}</ul>` : ""}
+      </li>
     `;
   }
 
@@ -585,7 +585,7 @@
     try {
       const arbol = await api.get("/organigrama/jefaturas");
       host.innerHTML = arbol.length
-        ? arbol.map(nodoJefaturaHtml).join("")
+        ? `<ul>${arbol.map(nodoJefaturaHtml).join("")}</ul>`
         : '<p class="text-faint">No hay empleados registrados todavía.</p>';
     } catch (err) {
       handleApiError(err);
@@ -595,7 +595,7 @@
 
   function nodoAreaHtml(n) {
     return `
-      <div class="org-node">
+      <li>
         <div class="org-node-card">
           <div>
             <div class="org-node-title">${escapeHtml(n.nombre)}</div>
@@ -604,8 +604,8 @@
             </div>
           </div>
         </div>
-        ${n.subareas.length ? `<div class="org-node-children">${n.subareas.map(nodoAreaHtml).join("")}</div>` : ""}
-      </div>
+        ${n.subareas.length ? `<ul>${n.subareas.map(nodoAreaHtml).join("")}</ul>` : ""}
+      </li>
     `;
   }
 
@@ -615,7 +615,7 @@
     try {
       const arbol = await api.get("/organigrama/dependencias");
       host.innerHTML = arbol.length
-        ? arbol.map(nodoAreaHtml).join("")
+        ? `<ul>${arbol.map(nodoAreaHtml).join("")}</ul>`
         : '<p class="text-faint">No hay áreas registradas todavía.</p>';
     } catch (err) {
       handleApiError(err);
