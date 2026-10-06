@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inicio · Ecodes Talento Humano</title>
+  <link rel="icon" href="assets/logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <div id="sidebar-slot"></div>
+    <div id="topbar-slot"></div>
+
+    <main class="main page-enter">
+      <div class="kpi-grid" id="inicio-kpis"></div>
+
+      <div id="birthday-widget"></div>
+
+      <div class="flex-between mb-18" style="margin-top:8px;">
+        <h2 style="font-family:'Space Grotesk';font-size:16px;margin:0;">Alertas próximas a atender</h2>
+        <a href="alertas.html" class="btn btn-secondary btn-sm">Ver todas las alertas</a>
+      </div>
+      <div id="inicio-alertas">
+        <p class="table-empty">Cargando alertas…</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/inicio.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 (() => {
-  // Si ya hay sesión activa, saltar directo a Empleados
+  // Si ya hay sesión activa, saltar directo a Inicio
   if (getSession()) {
-    window.location.href = "empleados.html";
+    window.location.href = "inicio.html";
     return;
   }
 
@@ -41,7 +41,7 @@
         nombre: data.nombre,
         rol: data.rol,
       });
-      window.location.href = "empleados.html";
+      window.location.href = "inicio.html";
     } catch (err) {
       errorBox.textContent = err.message || "Usuario o contraseña incorrectos";
       errorBox.classList.add("show");

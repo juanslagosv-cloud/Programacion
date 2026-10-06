@@ -16,7 +16,6 @@
     fillProyectoFilter();
     fillEmpresaFilter();
 
-    loadBirthdays();
     loadEmpleados();
     bindFilters();
     bindNuevoEmpleado();
@@ -67,43 +66,6 @@
       state.filtros.tipo_cargo = e.target.value;
       loadEmpleados();
     });
-  }
-
-  async function loadBirthdays() {
-    const host = document.getElementById("birthday-widget");
-    try {
-      const cumpleanos = await api.get("/empleados/cumpleanos?dias=45");
-      if (!cumpleanos.length) {
-        host.innerHTML = "";
-        return;
-      }
-      host.innerHTML = `
-        <div class="birthday-widget fade-up">
-          <div class="birthday-widget-title">
-            🎂 Próximos cumpleaños
-          </div>
-          <div class="birthday-scroll">
-            ${cumpleanos
-              .map(
-                (c) => `
-              <div class="birthday-card">
-                ${avatarHtml(c.nombre_completo, c.foto_url, 40)}
-                <div>
-                  <div class="birthday-name">${escapeHtml(c.nombre_completo)} ${
-                  c.etiqueta ? `<span class="birthday-tag">${c.etiqueta}</span>` : ""
-                }</div>
-                  <div class="birthday-role">${escapeHtml(c.nombre_cargo)}</div>
-                  <div class="birthday-date">${formatDate(c.proxima_fecha)}</div>
-                </div>
-              </div>`
-              )
-              .join("")}
-          </div>
-        </div>
-      `;
-    } catch (err) {
-      host.innerHTML = "";
-    }
   }
 
   async function loadEmpleados() {

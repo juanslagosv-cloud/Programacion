@@ -239,9 +239,33 @@ antigüedad que se muestra en su ficha como esta alerta. Treinta días antes
 de que el empleado cumpla 1 año, 2 años, 3 años, etc. con la empresa
 (contados desde esa fecha), aparece una alerta "Aniversario laboral" en la
 pantalla de Alertas, con cuántos años cumple y en qué fecha exacta. Se
-calcula igual que los cumpleaños de la pantalla Empleados (mismo manejo del
+calcula igual que los cumpleaños de la pantalla Inicio (mismo manejo del
 29 de febrero), pero sobre `fecha_ingreso` en vez de `fecha_nacimiento`, y
 sin alertar antes de que se cumpla el primer año.
+
+### 5.4. Inicio: tablero con KPIs, cumpleaños y alertas urgentes
+
+**Inicio** es la pantalla de entrada tras el login (reemplaza a Empleados
+como pantalla por defecto) y reúne en un solo lugar lo que antes estaba
+repartido:
+
+- **KPIs básicos**: empleados activos (sobre el total), proyectos activos,
+  alertas pendientes (la suma de todas las categorías de la pantalla
+  Alertas) y vacantes abiertas o en proceso (sección 5.1).
+- **Próximos cumpleaños**: el mismo widget que antes vivía en Empleados,
+  calculado sobre `fecha_nacimiento` para los próximos ~45 días (empleados
+  activos únicamente), con la etiqueta "Hoy"/"Mañana" cuando corresponde.
+- **Alertas próximas a atender**: una vista previa de hasta seis alertas,
+  tomadas de todas las categorías (vacaciones, sobre-asignación, nómina,
+  novedades sin procesar, expediente del empleado y aniversarios) y
+  ordenadas por nivel de severidad (crítico, alerta, info), con un enlace
+  "Ver todas las alertas" que lleva a la pantalla completa de Alertas
+  (sección 5.2).
+
+La pantalla de **Empleados** conserva solo la tabla filtrable de personal;
+los KPIs y el widget de cumpleaños que antes mostraba se trasladaron a
+Inicio para que Empleados vuelva a ser una pantalla enfocada en buscar y
+filtrar personal, no un dashboard.
 
 ## 6. Parámetros laborales y legales (motor de nómina colombiana)
 
@@ -439,16 +463,20 @@ para que el navegador pueda llamar a la API.
 
 1. Inicia sesión en `index.html` seleccionando el rol (Talento Humano o
    Administrativo) e ingresando usuario/contraseña.
-2. La pantalla de entrada es **Empleados**, con el widget de próximos
-   cumpleaños (siguientes ~45 días) y la tabla filtrable de personal.
-3. Haz clic en una fila para abrir la ficha completa del empleado (panel
-   lateral): información general, información personal y organizacional
-   (ciudad, estado civil, contacto de emergencia, área, jefe inmediato),
-   afiliaciones y datos bancarios (banco, EPS, AFP, ARL y su nivel de riesgo,
-   caja de compensación, fondo de cesantías, tipo y número de cuenta),
-   historial contractual (ver sección 3), formación académica, experiencia
-   laboral, proyectos asignados (con su % de dedicación), vacaciones e
-   historial de movimientos.
+2. La pantalla de entrada es **Inicio**, un dashboard con KPIs básicos
+   (empleados activos, proyectos activos, alertas pendientes y vacantes
+   abiertas), el widget de próximos cumpleaños (siguientes ~45 días) y una
+   vista previa de las alertas más urgentes con un enlace directo a la
+   pantalla completa de Alertas (ver sección 5.4).
+3. En **Empleados** se filtra y busca el personal; haz clic en una fila para
+   abrir la ficha completa del empleado (panel lateral): información
+   general, información personal y organizacional (ciudad, estado civil,
+   contacto de emergencia, área, jefe inmediato), afiliaciones y datos
+   bancarios (banco, EPS, AFP, ARL y su nivel de riesgo, caja de
+   compensación, fondo de cesantías, tipo y número de cuenta), historial
+   contractual (ver sección 3), formación académica, experiencia laboral,
+   proyectos asignados (con su % de dedicación), vacaciones e historial de
+   movimientos.
 4. En **Proyectos** puedes crear proyectos y gestionar el equipo asignado con
    su % de dedicación — la suma de participación de una persona en todos sus
    proyectos nunca puede superar el 100% (validado en frontend y backend).
